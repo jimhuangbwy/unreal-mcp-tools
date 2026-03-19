@@ -191,30 +191,32 @@ TSharedPtr<FJsonObject> FUnrealMCPBlueprintCommands::HandleAddComponentToBluepri
     }
 
     // Create the component - dynamically find the component class by name
-    UClass* ComponentClass = nullptr;
-
-    // Try to find the class with exact name first
-    ComponentClass = FindFirstObject<UClass>( *ComponentType);
-    
-    // If not found, try with "Component" suffix
-    if (!ComponentClass && !ComponentType.EndsWith(TEXT("Component")))
+    // Build candidate class names (without U prefix, since LoadClass paths use raw name)
+    TArray<FString> CandidateNames;
+    // Strip U prefix if provided
+    FString CleanType = ComponentType.StartsWith(TEXT("U")) ? ComponentType.Mid(1) : ComponentType;
+    CandidateNames.Add(CleanType);
+    if (!CleanType.EndsWith(TEXT("Component")))
     {
-        FString ComponentTypeWithSuffix = ComponentType + TEXT("Component");
-        ComponentClass = FindFirstObject<UClass>( *ComponentTypeWithSuffix);
+        CandidateNames.Add(CleanType + TEXT("Component"));
     }
-    
-    // If still not found, try with "U" prefix
-    if (!ComponentClass && !ComponentType.StartsWith(TEXT("U")))
+
+    UClass* ComponentClass = nullptr;
+    for (const FString& Candidate : CandidateNames)
     {
-        FString ComponentTypeWithPrefix = TEXT("U") + ComponentType;
-        ComponentClass = FindFirstObject<UClass>( *ComponentTypeWithPrefix);
-        
-        // Try with both prefix and suffix
-        if (!ComponentClass && !ComponentType.EndsWith(TEXT("Component")))
+        // Try loading from Engine module (covers most built-in component types)
+        FString ClassPath = FString::Printf(TEXT("/Script/Engine.%s"), *Candidate);
+        ComponentClass = LoadClass<UActorComponent>(nullptr, *ClassPath);
+        if (ComponentClass) break;
+
+        // Try other common modules
+        for (const TCHAR* Module : { TEXT("UMG"), TEXT("AIModule"), TEXT("NavigationSystem") })
         {
-            FString ComponentTypeWithBoth = TEXT("U") + ComponentType + TEXT("Component");
-            ComponentClass = FindFirstObject<UClass>( *ComponentTypeWithBoth);
+            ClassPath = FString::Printf(TEXT("/Script/%s.%s"), Module, *Candidate);
+            ComponentClass = LoadClass<UActorComponent>(nullptr, *ClassPath);
+            if (ComponentClass) break;
         }
+        if (ComponentClass) break;
     }
     
     // Verify that the class is a valid component type

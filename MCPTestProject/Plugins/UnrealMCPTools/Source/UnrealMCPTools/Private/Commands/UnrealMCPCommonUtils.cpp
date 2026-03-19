@@ -193,40 +193,62 @@ UK2Node_Event* FUnrealMCPCommonUtils::CreateEventNode(UEdGraph* Graph, const FSt
         return nullptr;
     }
     
-    // Check for existing event node with this exact name
+    // Map common short names to actual UE function names (Receive* prefix)
+    FString MappedName = EventName;
+    if (EventName == TEXT("BeginPlay")) MappedName = TEXT("ReceiveBeginPlay");
+    else if (EventName == TEXT("Tick")) MappedName = TEXT("ReceiveTick");
+    else if (EventName == TEXT("EndPlay")) MappedName = TEXT("ReceiveEndPlay");
+    else if (EventName == TEXT("ActorBeginOverlap")) MappedName = TEXT("ReceiveActorBeginOverlap");
+    else if (EventName == TEXT("ActorEndOverlap")) MappedName = TEXT("ReceiveActorEndOverlap");
+    else if (EventName == TEXT("Hit")) MappedName = TEXT("ReceiveHit");
+    else if (EventName == TEXT("AnyDamage")) MappedName = TEXT("ReceiveAnyDamage");
+    else if (EventName == TEXT("Destroyed")) MappedName = TEXT("ReceiveDestroyed");
+
+    // Check for existing event node with this name
     for (UEdGraphNode* Node : Graph->Nodes)
     {
         UK2Node_Event* EventNode = Cast<UK2Node_Event>(Node);
-        if (EventNode && EventNode->EventReference.GetMemberName() == FName(*EventName))
+        if (EventNode)
         {
-            UE_LOG(LogTemp, Display, TEXT("Using existing event node with name %s (ID: %s)"), 
-                *EventName, *EventNode->NodeGuid.ToString());
-            return EventNode;
+            FName MemberName = EventNode->EventReference.GetMemberName();
+            if (MemberName == FName(*EventName) || MemberName == FName(*MappedName))
+            {
+                UE_LOG(LogTemp, Display, TEXT("Using existing event node with name %s (ID: %s)"),
+                    *EventName, *EventNode->NodeGuid.ToString());
+                return EventNode;
+            }
         }
     }
 
     // No existing node found, create a new one
     UK2Node_Event* EventNode = nullptr;
-    
+
     // Find the function to create the event
     UClass* BlueprintClass = Blueprint->GeneratedClass;
-    UFunction* EventFunction = BlueprintClass->FindFunctionByName(FName(*EventName));
-    
+    UFunction* EventFunction = BlueprintClass->FindFunctionByName(FName(*MappedName));
+
+    // Fallback: try the original name as-is
+    if (!EventFunction && MappedName != EventName)
+    {
+        EventFunction = BlueprintClass->FindFunctionByName(FName(*EventName));
+    }
+
     if (EventFunction)
     {
+        FName FuncName = EventFunction->GetFName();
         EventNode = NewObject<UK2Node_Event>(Graph);
-        EventNode->EventReference.SetExternalMember(FName(*EventName), BlueprintClass);
+        EventNode->EventReference.SetExternalMember(FuncName, BlueprintClass);
         EventNode->NodePosX = Position.X;
         EventNode->NodePosY = Position.Y;
         Graph->AddNode(EventNode, true);
         EventNode->PostPlacedNewNode();
         EventNode->AllocateDefaultPins();
-        UE_LOG(LogTemp, Display, TEXT("Created new event node with name %s (ID: %s)"), 
-            *EventName, *EventNode->NodeGuid.ToString());
+        UE_LOG(LogTemp, Display, TEXT("Created new event node '%s' -> '%s' (ID: %s)"),
+            *EventName, *FuncName.ToString(), *EventNode->NodeGuid.ToString());
     }
     else
     {
-        UE_LOG(LogTemp, Error, TEXT("Failed to find function for event name: %s"), *EventName);
+        UE_LOG(LogTemp, Error, TEXT("Failed to find function for event name: %s (also tried: %s)"), *EventName, *MappedName);
     }
     
     return EventNode;
@@ -400,19 +422,42 @@ UEdGraphPin* FUnrealMCPCommonUtils::FindPin(UEdGraphNode* Node, const FString& P
         }
     }
     
-    // If we're looking for a component output and didn't find it by name, try to find the first data output pin
-    if (Direction == EGPD_Output && Cast<UK2Node_VariableGet>(Node) != nullptr)
+    // Try common pin name aliases
+    static const TPair<FString, FString> PinAliases[] = {
+        { TEXT("Target"), TEXT("self") },
+        { TEXT("self"), TEXT("Target") },
+        { TEXT("Execute"), TEXT("execute") },
+        { TEXT("Then"), TEXT("then") },
+    };
+    for (const auto& Alias : PinAliases)
+    {
+        if (PinName == Alias.Key)
+        {
+            for (UEdGraphPin* Pin : Node->Pins)
+            {
+                if (Pin->PinName.ToString().Equals(Alias.Value, ESearchCase::IgnoreCase) &&
+                    (Direction == EGPD_MAX || Pin->Direction == Direction))
+                {
+                    UE_LOG(LogTemp, Display, TEXT("  - Found pin via alias '%s' -> '%s'"), *PinName, *Pin->PinName.ToString());
+                    return Pin;
+                }
+            }
+        }
+    }
+
+    // Fallback: find the first non-exec pin in the requested direction
+    if (Direction != EGPD_MAX)
     {
         for (UEdGraphPin* Pin : Node->Pins)
         {
-            if (Pin->Direction == EGPD_Output && Pin->PinType.PinCategory != UEdGraphSchema_K2::PC_Exec)
+            if (Pin->Direction == Direction && Pin->PinType.PinCategory != UEdGraphSchema_K2::PC_Exec)
             {
-                UE_LOG(LogTemp, Display, TEXT("  - Found fallback data output pin: '%s'"), *Pin->PinName.ToString());
+                UE_LOG(LogTemp, Display, TEXT("  - Found fallback data pin: '%s'"), *Pin->PinName.ToString());
                 return Pin;
             }
         }
     }
-    
+
     UE_LOG(LogTemp, Warning, TEXT("  - No matching pin found for '%s'"), *PinName);
     return nullptr;
 }

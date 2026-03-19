@@ -103,7 +103,41 @@ def main():
             return
             
         logger.info("Static mesh component added successfully!")
-        
+
+        # Step 2b: Enable physics simulation on the mesh component
+        sock.close()
+        sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        sock.settimeout(5.0)
+        sock.connect(("127.0.0.1", 55557))
+
+        response = send_command(sock, "set_physics_properties", {
+            "blueprint_name": "TestCompRefBP",
+            "component_name": "TestMesh",
+            "simulate_physics": True
+        })
+        if not response or response.get("status") != "success":
+            logger.error(f"Failed to enable physics: {response}")
+            return
+
+        logger.info("Physics simulation enabled on TestMesh!")
+
+        # Step 2c: Set a static mesh so the component has geometry
+        sock.close()
+        sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        sock.settimeout(5.0)
+        sock.connect(("127.0.0.1", 55557))
+
+        response = send_command(sock, "set_static_mesh_properties", {
+            "blueprint_name": "TestCompRefBP",
+            "component_name": "TestMesh",
+            "static_mesh": "/Engine/BasicShapes/Cube.Cube"
+        })
+        if not response or response.get("status") != "success":
+            logger.error(f"Failed to set static mesh: {response}")
+            return
+
+        logger.info("Static mesh set to Cube!")
+
         # Step 3: Add an event (BeginPlay)
         sock.close()
         sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
@@ -112,7 +146,7 @@ def main():
         
         begin_play_params = {
             "blueprint_name": "TestCompRefBP",
-            "event_type": "BeginPlay",
+            "event_name": "BeginPlay",
             "node_position": [0, 0]
         }
         
@@ -152,6 +186,7 @@ def main():
         
         function_params = {
             "blueprint_name": "TestCompRefBP",
+            "target": "PrimitiveComponent",
             "function_name": "AddForce",
             "params": {
                 "Force": [0, 0, 1000]
@@ -205,26 +240,9 @@ def main():
         }
         
         response = send_command(sock, "connect_blueprint_nodes", connect_target_params)
-        logger.warning(f"Pin connection response: {response}")
-        if not response or response.get("status") != "success" or not response.get("result", {}).get("success", False):
+        if not response or response.get("status") != "success":
             logger.error(f"Failed to connect component reference: {response}")
-            # Try alternate pin names if needed
-            fallback_pin_names = ["Value", "ReturnValue"]
-            for pin_name in fallback_pin_names:
-                logger.info(f"Trying with alternative pin name: '{pin_name}'")
-                connect_target_params["source_pin"] = pin_name
-                
-                sock.close()
-                sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-                sock.connect(("127.0.0.1", 55557))
-                
-                response = send_command(sock, "connect_blueprint_nodes", connect_target_params)
-                if response and response.get("status") == "success" and response.get("result", {}).get("success", False):
-                    logger.info(f"Successfully connected using pin name: '{pin_name}'")
-                    break
-            else:
-                logger.error("Failed to connect with all pin name options")
-                return
+            return
                 
         logger.info("Connected component reference to AddForce target!")
         

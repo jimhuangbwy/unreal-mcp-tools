@@ -323,62 +323,37 @@ TSharedPtr<FJsonObject> FUnrealMCPBlueprintNodeCommands::HandleAddBlueprintFunct
         // Try to find the target class
         UClass* TargetClass = nullptr;
 
-        // First try without a prefix
-        TargetClass = FindFirstObject<UClass>( *Target);
-        UE_LOG(LogTemp, Display, TEXT("Tried to find class '%s': %s"),
-               *Target, TargetClass ? TEXT("Found") : TEXT("Not found"));
+        // Strip U prefix if provided to get clean class name
+        FString CleanName = Target.StartsWith(TEXT("U")) ? Target.Mid(1) : Target;
 
-        // If not found, try with U prefix (common convention for UE classes)
-        if (!TargetClass && !Target.StartsWith(TEXT("U")))
+        // Build candidate names (without U prefix - UE class objects use raw names)
+        TArray<FString> CandidateNames;
+        CandidateNames.Add(CleanName);
+        if (!CleanName.EndsWith(TEXT("Component")))
         {
-            FString TargetWithPrefix = FString(TEXT("U")) + Target;
-            TargetClass = FindFirstObject<UClass>( *TargetWithPrefix);
-            UE_LOG(LogTemp, Display, TEXT("Tried to find class '%s': %s"),
-                   *TargetWithPrefix, TargetClass ? TEXT("Found") : TEXT("Not found"));
+            CandidateNames.Add(CleanName + TEXT("Component"));
+        }
+        // Also try with A prefix stripped (for actor classes like AActor)
+        if (Target.StartsWith(TEXT("A")) && !Target.StartsWith(TEXT("AI")))
+        {
+            CandidateNames.Add(Target); // Keep original e.g. "APawn"
         }
 
-        // If still not found, try with common component names
-        if (!TargetClass)
+        // Try loading from known module paths
+        static const TCHAR* Modules[] = { TEXT("Engine"), TEXT("UMG"), TEXT("AIModule"), TEXT("NavigationSystem"), TEXT("HeadMountedDisplay") };
+        for (const FString& Candidate : CandidateNames)
         {
-            // Try some common component class names
-            TArray<FString> PossibleClassNames;
-            PossibleClassNames.Add(FString(TEXT("U")) + Target + TEXT("Component"));
-            PossibleClassNames.Add(Target + TEXT("Component"));
-
-            for (const FString& ClassName : PossibleClassNames)
+            for (const TCHAR* Module : Modules)
             {
-                TargetClass = FindFirstObject<UClass>( *ClassName);
+                FString ClassPath = FString::Printf(TEXT("/Script/%s.%s"), Module, *Candidate);
+                TargetClass = LoadObject<UClass>(nullptr, *ClassPath);
                 if (TargetClass)
                 {
-                    UE_LOG(LogTemp, Display, TEXT("Found class using alternative name '%s'"), *ClassName);
+                    UE_LOG(LogTemp, Display, TEXT("Found class at '%s'"), *ClassPath);
                     break;
                 }
             }
-        }
-
-        // If still not found, try loading from known Engine/UE module paths.
-        // This covers static library classes like KismetMathLibrary, KismetSystemLibrary,
-        // GameplayStatics, KismetStringLibrary, KismetArrayLibrary, etc.
-        if (!TargetClass)
-        {
-            // Strip the U prefix if present to get the clean class name for path construction
-            FString CleanName = Target.StartsWith(TEXT("U")) ? Target.RightChop(1) : Target;
-
-            // Try common module paths where static library classes live
-            TArray<FString> ModulePaths;
-            ModulePaths.Add(FString::Printf(TEXT("/Script/Engine.%s"), *CleanName));
-            ModulePaths.Add(FString::Printf(TEXT("/Script/UMG.%s"), *CleanName));
-            ModulePaths.Add(FString::Printf(TEXT("/Script/HeadMountedDisplay.%s"), *CleanName));
-
-            for (const FString& ModulePath : ModulePaths)
-            {
-                TargetClass = LoadObject<UClass>(nullptr, *ModulePath);
-                if (TargetClass)
-                {
-                    UE_LOG(LogTemp, Display, TEXT("Loaded class from module path '%s'"), *ModulePath);
-                    break;
-                }
-            }
+            if (TargetClass) break;
         }
         
         // If we found a target class, look for the function there
@@ -519,21 +494,18 @@ TSharedPtr<FJsonObject> FUnrealMCPBlueprintNodeCommands::HandleAddBlueprintFunct
                             // - Non-actor classes must start with 'U' (e.g., UObject)
                             const FString& ClassName = StringVal;
                             
-                            // TODO: This likely won't work in UE5.5+, so don't rely on it.
-                            UClass* Class = FindFirstObject<UClass>( *ClassName);
-
+                            // Try loading as a full path first, then by name from known modules
+                            UClass* Class = LoadObject<UClass>(nullptr, *ClassName);
                             if (!Class)
                             {
-                                Class = LoadObject<UClass>(nullptr, *ClassName);
-                                UE_LOG(LogUnrealMCP, Display, TEXT("FindObject<UClass> failed. Assuming soft path  path: %s"), *ClassName);
-                            }
-                            
-                            // If not found, try with Engine module path
-                            if (!Class)
-                            {
-                                FString EngineClassName = FString::Printf(TEXT("/Script/Engine.%s"), *ClassName);
-                                Class = LoadObject<UClass>(nullptr, *EngineClassName);
-                                UE_LOG(LogUnrealMCP, Display, TEXT("Trying Engine module path: %s"), *EngineClassName);
+                                // Strip prefix (A/U) to get the raw class name for module path lookup
+                                FString RawName = (ClassName.StartsWith(TEXT("A")) || ClassName.StartsWith(TEXT("U"))) ? ClassName.Mid(1) : ClassName;
+                                for (const TCHAR* Mod : { TEXT("Engine"), TEXT("UMG"), TEXT("AIModule") })
+                                {
+                                    FString ClassPath = FString::Printf(TEXT("/Script/%s.%s"), Mod, *RawName);
+                                    Class = LoadObject<UClass>(nullptr, *ClassPath);
+                                    if (Class) break;
+                                }
                             }
                             
                             if (!Class)
