@@ -183,7 +183,17 @@ TSharedPtr<FJsonObject> FUnrealMCPEditorCommands::HandleSpawnActor(const TShared
 
     if (ActorType == TEXT("StaticMeshActor"))
     {
-        NewActor = World->SpawnActor<AStaticMeshActor>(AStaticMeshActor::StaticClass(), Location, Rotation, SpawnParams);
+        AStaticMeshActor* MeshActor = World->SpawnActor<AStaticMeshActor>(AStaticMeshActor::StaticClass(), Location, Rotation, SpawnParams);
+        if (MeshActor && MeshActor->GetStaticMeshComponent())
+        {
+            // Assign a default cube mesh if no mesh is specified
+            UStaticMesh* DefaultMesh = LoadObject<UStaticMesh>(nullptr, TEXT("/Engine/BasicShapes/Cube.Cube"));
+            if (DefaultMesh)
+            {
+                MeshActor->GetStaticMeshComponent()->SetStaticMesh(DefaultMesh);
+            }
+        }
+        NewActor = MeshActor;
     }
     else if (ActorType == TEXT("PointLight"))
     {
@@ -208,10 +218,20 @@ TSharedPtr<FJsonObject> FUnrealMCPEditorCommands::HandleSpawnActor(const TShared
 
     if (NewActor)
     {
+        // Set the actor label to match the requested name
+        NewActor->SetActorLabel(ActorName);
+
         // Set scale (since SpawnActor only takes location and rotation)
         FTransform Transform = NewActor->GetTransform();
         Transform.SetScale3D(Scale);
         NewActor->SetActorTransform(Transform);
+
+        // Set folder path if provided
+        FString FolderPath;
+        if (Params->TryGetStringField(TEXT("folder"), FolderPath))
+        {
+            NewActor->SetFolderPath(*FolderPath);
+        }
 
         // Return the created actor's details
         return FUnrealMCPCommonUtils::ActorToJsonObject(NewActor, true);
@@ -584,9 +604,9 @@ TSharedPtr<FJsonObject> FUnrealMCPEditorCommands::HandleTakeScreenshot(const TSh
         
         if (Viewport->ReadPixels(Bitmap, FReadSurfaceDataFlags(), ViewportRect))
         {
-            TArray<uint8> CompressedBitmap;
-            FImageUtils::CompressImageArray(Viewport->GetSizeXY().X, Viewport->GetSizeXY().Y, Bitmap, CompressedBitmap);
-            
+            TArray64<uint8> CompressedBitmap;
+            FImageUtils::PNGCompressImageArray(Viewport->GetSizeXY().X, Viewport->GetSizeXY().Y, Bitmap, CompressedBitmap);
+
             if (FFileHelper::SaveArrayToFile(CompressedBitmap, *FilePath))
             {
                 TSharedPtr<FJsonObject> ResultObj = MakeShared<FJsonObject>();
