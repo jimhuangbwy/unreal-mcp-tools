@@ -1,11 +1,6 @@
 # Unreal MCP
 Python/unreal_mcp.log
 
-# AI-related files
-.cursorrules
-.cursorignore
-CLAUDE.md
-
 # Code-copy related files
 .codeignore
 *codeclip*
