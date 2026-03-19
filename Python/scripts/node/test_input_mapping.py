@@ -87,6 +87,7 @@ def main():
     try:
         # Step 1: Create a controller blueprint
         sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        sock.settimeout(5.0)
         sock.connect(("127.0.0.1", 55557))
         
         bp_params = {
@@ -109,6 +110,7 @@ def main():
         # Close and reopen connection for each command
         sock.close()
         sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        sock.settimeout(5.0)
         sock.connect(("127.0.0.1", 55557))
         
         # Step 2: Add variables to track state
@@ -191,6 +193,7 @@ def main():
         # Close and reopen connection
         sock.close()
         sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        sock.settimeout(5.0)
         sock.connect(("127.0.0.1", 55557))
         
         # Step 5: Add function nodes for different actions
@@ -315,6 +318,7 @@ def main():
         # Step 7: Compile the blueprint
         sock.close()
         sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        sock.settimeout(5.0)
         sock.connect(("127.0.0.1", 55557))
         
         compile_params = {
@@ -332,6 +336,7 @@ def main():
         # Step 8: Spawn the controller in the level
         sock.close()
         sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        sock.settimeout(5.0)
         sock.connect(("127.0.0.1", 55557))
         
         spawn_params = {

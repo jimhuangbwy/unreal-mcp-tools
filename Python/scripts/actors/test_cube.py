@@ -26,6 +26,7 @@ def send_command(command: str, params: Dict[str, Any]) -> Optional[Dict[str, Any
     """Send a command to the Unreal MCP server and get the response."""
     try:
         sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        sock.settimeout(5.0)
         sock.connect(("127.0.0.1", 55557))
 
         try:

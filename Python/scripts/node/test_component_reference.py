@@ -66,6 +66,7 @@ def main():
     try:
         # Connect to the server
         sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        sock.settimeout(5.0)
         sock.connect(("127.0.0.1", 55557))
         
         # Step 1: Create a blueprint
@@ -93,6 +94,7 @@ def main():
         
         sock.close()
         sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        sock.settimeout(5.0)
         sock.connect(("127.0.0.1", 55557))
         
         response = send_command(sock, "add_component_to_blueprint", component_params)
@@ -105,6 +107,7 @@ def main():
         # Step 3: Add an event (BeginPlay)
         sock.close()
         sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        sock.settimeout(5.0)
         sock.connect(("127.0.0.1", 55557))
         
         begin_play_params = {
@@ -124,6 +127,7 @@ def main():
         # Step 4: Create component reference node
         sock.close()
         sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        sock.settimeout(5.0)
         sock.connect(("127.0.0.1", 55557))
         
         get_component_params = {
@@ -143,6 +147,7 @@ def main():
         # Step 5: Add AddForce function node
         sock.close()
         sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        sock.settimeout(5.0)
         sock.connect(("127.0.0.1", 55557))
         
         function_params = {
@@ -165,6 +170,7 @@ def main():
         # Step 6: Connect BeginPlay to AddForce (execution)
         sock.close()
         sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        sock.settimeout(5.0)
         sock.connect(("127.0.0.1", 55557))
         
         connect_exec_params = {
@@ -185,6 +191,7 @@ def main():
         # Step 7: Connect component reference to AddForce target
         sock.close()
         sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        sock.settimeout(5.0)
         sock.connect(("127.0.0.1", 55557))
         
         # In UE5.5, the output pin of a component reference is named after the component itself
@@ -224,6 +231,7 @@ def main():
         # Step 8: Compile Blueprint
         sock.close()
         sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        sock.settimeout(5.0)
         sock.connect(("127.0.0.1", 55557))
         
         compile_params = {
@@ -240,6 +248,7 @@ def main():
         # Step 9: Spawn the actor
         sock.close()
         sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        sock.settimeout(5.0)
         sock.connect(("127.0.0.1", 55557))
         
         spawn_params = {

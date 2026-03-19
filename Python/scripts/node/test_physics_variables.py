@@ -66,6 +66,7 @@ def main():
     try:
         # Step 1: Create blueprint for a physics-based obstacle
         sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        sock.settimeout(5.0)
         sock.connect(("127.0.0.1", 55557))
         
         bp_params = {
@@ -88,6 +89,7 @@ def main():
         # Close and reopen connection for each command
         sock.close()
         sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        sock.settimeout(5.0)
         sock.connect(("127.0.0.1", 55557))
         
         # Step 2: Add variables to control physics behavior
@@ -157,6 +159,7 @@ def main():
         # Close and reopen connection
         sock.close()
         sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        sock.settimeout(5.0)
         sock.connect(("127.0.0.1", 55557))
         
         # Step 4: Set physics properties using the variables
@@ -178,6 +181,7 @@ def main():
         # Close and reopen connection
         sock.close()
         sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        sock.settimeout(5.0)
         sock.connect(("127.0.0.1", 55557))
         
         # Step 5: Add BeginPlay event node
@@ -201,6 +205,7 @@ def main():
         # Close and reopen connection
         sock.close()
         sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        sock.settimeout(5.0)
         sock.connect(("127.0.0.1", 55557))
         
         # Step 6: Add Tick event node
@@ -224,6 +229,7 @@ def main():
         # Close and reopen connection
         sock.close()
         sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        sock.settimeout(5.0)
         sock.connect(("127.0.0.1", 55557))
         
         # Step 7: Add function node to set mesh physics settings from variables
@@ -252,6 +258,7 @@ def main():
         # Close and reopen connection
         sock.close()
         sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        sock.settimeout(5.0)
         sock.connect(("127.0.0.1", 55557))
         
         # Step 8: Add function node to rotate the obstacle
@@ -281,6 +288,7 @@ def main():
         # Close and reopen connection
         sock.close()
         sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        sock.settimeout(5.0)
         sock.connect(("127.0.0.1", 55557))
         
         # Step 9: Connect BeginPlay to SetMassScale
@@ -303,6 +311,7 @@ def main():
         # Close and reopen connection
         sock.close()
         sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        sock.settimeout(5.0)
         sock.connect(("127.0.0.1", 55557))
         
         # Step 10: Connect Tick to AddTorqueInRadians
@@ -325,6 +334,7 @@ def main():
         # Close and reopen connection
         sock.close()
         sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        sock.settimeout(5.0)
         sock.connect(("127.0.0.1", 55557))
         
         # Step 11: Compile the blueprint
@@ -343,6 +353,7 @@ def main():
         # Close and reopen connection
         sock.close()
         sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        sock.settimeout(5.0)
         sock.connect(("127.0.0.1", 55557))
         
         # Step 12: Spawn multiple instances of the obstacle at different positions

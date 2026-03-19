@@ -440,15 +440,16 @@ TSharedPtr<FJsonObject> FUnrealMCPEditorCommands::HandleSpawnBlueprintActor(cons
     FString Root      = TEXT("/Game/Blueprints/");
     FString AssetPath = Root + BlueprintName;
 
-    if (!FPackageName::DoesPackageExist(AssetPath))
-    {
-        return FUnrealMCPCommonUtils::CreateErrorResponse(FString::Printf(TEXT("Blueprint '%s' not found – it must reside under /Game/Blueprints"), *BlueprintName));
-    }
-
-    UBlueprint* Blueprint = LoadObject<UBlueprint>(nullptr, *AssetPath);
+    // Try to find the blueprint in memory first (may not be saved to disk yet),
+    // then fall back to loading from disk
+    UBlueprint* Blueprint = FindObject<UBlueprint>(nullptr, *(AssetPath + TEXT(".") + BlueprintName));
     if (!Blueprint)
     {
-        return FUnrealMCPCommonUtils::CreateErrorResponse(FString::Printf(TEXT("Blueprint not found: %s"), *BlueprintName));
+        Blueprint = LoadObject<UBlueprint>(nullptr, *AssetPath);
+    }
+    if (!Blueprint)
+    {
+        return FUnrealMCPCommonUtils::CreateErrorResponse(FString::Printf(TEXT("Blueprint '%s' not found under /Game/Blueprints"), *BlueprintName));
     }
 
     // Get transform parameters

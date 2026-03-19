@@ -76,6 +76,7 @@ def main():
     try:
         # Connect to Unreal MCP server
         sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        sock.settimeout(5.0)
         sock.connect(("127.0.0.1", 55557))
         
         try:

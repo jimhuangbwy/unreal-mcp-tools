@@ -113,6 +113,7 @@ def send_mcp_command(command: str, params: Dict[str, Any]) -> Optional[Dict[str,
     try:
         # Create a new socket for each command
         sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        sock.settimeout(5.0)
         sock.connect(("127.0.0.1", 55557))
         
         # Send the command and get the response
