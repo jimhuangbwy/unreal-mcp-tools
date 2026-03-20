@@ -1,4 +1,7 @@
 /.vscode
 /Content
+/DerivedDataCache
 /Intermediate
 /Saved
+/Plugins/UnrealMCPTools/Content
+/Plugins/UnrealMCPTools/Intermediate

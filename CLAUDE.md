@@ -4,10 +4,10 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-An MCP (Model Context Protocol) server that enables AI tools (Claude Desktop, Cursor, Windsurf) to interact with Unreal Engine 5.5. Two components communicate over TCP/JSON:
+An MCP (Model Context Protocol) server that enables AI tools (Claude Desktop, Cursor, Windsurf) to interact with Unreal Engine 5.7. Two components communicate over TCP/JSON:
 
 - **Python MCP Server** (`Python/`) — FastMCP-based server exposing tools via stdio transport
-- **Unreal Engine Plugin** (`MCPTestProject/Plugins/UnrealMCPTools/`) — C++ editor plugin running a TCP server inside UE5.5
+- **Unreal Engine Plugin** (`MCPTestProject/Plugins/UnrealMCPTools/`) — C++ editor plugin running a TCP server inside UE5.7
 
 ## Architecture
 
@@ -21,7 +21,7 @@ The Python server receives MCP tool calls, translates them to JSON commands `{"t
 
 ### Build the UE plugin (includes all project modules)
 ```
-"C:/Program Files/Epic Games/UE_5.5/Engine/Build/BatchFiles/Build.bat" MCPTestProjectEditor Win64 Development "D:/UnrealProjects/unreal-mcp-tools/MCPTestProject/MCPTestProject.uproject" -WaitMutex
+"C:/Program Files/Epic Games/UE_5.7/Engine/Build/BatchFiles/Build.bat" MCPTestProjectEditor Win64 Development "D:/UnrealProjects/unreal-mcp-tools/MCPTestProject/MCPTestProject.uproject" -WaitMutex
 ```
 
 ### Run the Python MCP server

@@ -1,6 +1,6 @@
 # Unreal MCP Tools
 
-An [MCP (Model Context Protocol)](https://modelcontextprotocol.io/) integration for **Unreal Engine 5.5** that allows AI assistants (Claude Desktop, Cursor, Windsurf) to directly interact with the Unreal Editor — spawning actors, creating blueprints, building UMG widgets, and more.
+An [MCP (Model Context Protocol)](https://modelcontextprotocol.io/) integration for **Unreal Engine 5.7** that allows AI assistants (Claude Desktop, Cursor, Windsurf) to directly interact with the Unreal Editor — spawning actors, creating blueprints, building UMG widgets, and more.
 
 ## How It Works
 
@@ -26,7 +26,7 @@ The **Python MCP Server** exposes tools to AI clients via the MCP protocol. When
 
 ## Prerequisites
 
-- **Unreal Engine 5.5**
+- **Unreal Engine 5.7**
 - **Python 3.10+**
 - **[uv](https://github.com/astral-sh/uv)** — Python package manager
 
@@ -34,7 +34,7 @@ The **Python MCP Server** exposes tools to AI clients via the MCP protocol. When
 
 ### 1. Install the Unreal Plugin
 
-Copy the `MCPTestProject/Plugins/UnrealMCPTools` folder into your Unreal Engine project's `Plugins/` directory, then rebuild the project. Or, if using the included test project, simply open `MCPTestProject/MCPTestProject.uproject` in UE5.5.
+Copy the `MCPTestProject/Plugins/UnrealMCPTools` folder into your Unreal Engine project's `Plugins/` directory, then rebuild the project. Or, if using the included test project, simply open `MCPTestProject/MCPTestProject.uproject` in UE5.7.
 
 ### 2. Install Python Dependencies
 
