@@ -76,7 +76,7 @@ def main():
         
         response = send_command(sock, "create_blueprint", bp_params)
         
-        if not response or response.get("status") != "success" or not response.get("result", {}).get("success"):
+        if not response or response.get("status") != "success":
             logger.error(f"Failed to create blueprint: {response}")
             return
         
@@ -127,7 +127,7 @@ def main():
         for var_params in var_params_list:
             response = send_command(sock, "add_blueprint_variable", var_params)
             
-            if not response or response.get("status") != "success" or not response.get("result", {}).get("success"):
+            if not response or response.get("status") != "success":
                 logger.error(f"Failed to add variable: {response}")
                 return
                 
@@ -150,18 +150,39 @@ def main():
         
         response = send_command(sock, "add_component_to_blueprint", component_params)
         
-        if not response or response.get("status") != "success" or not response.get("result", {}).get("success"):
+        if not response or response.get("status") != "success":
             logger.error(f"Failed to add component: {response}")
             return
             
         logger.info("Obstacle mesh component added successfully!")
-        
+
         # Close and reopen connection
         sock.close()
         sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         sock.settimeout(5.0)
         sock.connect(("127.0.0.1", 55557))
-        
+
+        # Step 3b: Assign a mesh asset to the component
+        mesh_params = {
+            "blueprint_name": "PhysicsObstacleBP",
+            "component_name": "ObstacleMesh",
+            "static_mesh": "/Engine/BasicShapes/Cube.Cube"
+        }
+
+        response = send_command(sock, "set_static_mesh_properties", mesh_params)
+
+        if not response or response.get("status") != "success":
+            logger.error(f"Failed to set static mesh: {response}")
+            return
+
+        logger.info("Static mesh asset (Cube) assigned successfully!")
+
+        # Close and reopen connection
+        sock.close()
+        sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        sock.settimeout(5.0)
+        sock.connect(("127.0.0.1", 55557))
+
         # Step 4: Set physics properties using the variables
         physics_params = {
             "blueprint_name": "PhysicsObstacleBP",
@@ -172,7 +193,7 @@ def main():
         
         response = send_command(sock, "set_physics_properties", physics_params)
         
-        if not response or response.get("status") != "success" or not response.get("result", {}).get("success"):
+        if not response or response.get("status") != "success":
             logger.error(f"Failed to set physics properties: {response}")
             return
             
@@ -187,13 +208,13 @@ def main():
         # Step 5: Add BeginPlay event node
         begin_play_params = {
             "blueprint_name": "PhysicsObstacleBP",
-            "event_type": "BeginPlay",
+            "event_name": "BeginPlay",
             "node_position": [0, 0]
         }
         
         response = send_command(sock, "add_blueprint_event_node", begin_play_params)
         
-        if not response or response.get("status") != "success" or not response.get("result", {}).get("success"):
+        if not response or response.get("status") != "success":
             logger.error(f"Failed to add BeginPlay event node: {response}")
             return
             
@@ -211,13 +232,13 @@ def main():
         # Step 6: Add Tick event node
         tick_params = {
             "blueprint_name": "PhysicsObstacleBP",
-            "event_type": "Tick",
+            "event_name": "Tick",
             "node_position": [0, 200]
         }
         
         response = send_command(sock, "add_blueprint_event_node", tick_params)
         
-        if not response or response.get("status") != "success" or not response.get("result", {}).get("success"):
+        if not response or response.get("status") != "success":
             logger.error(f"Failed to add Tick event node: {response}")
             return
             
@@ -232,119 +253,205 @@ def main():
         sock.settimeout(5.0)
         sock.connect(("127.0.0.1", 55557))
         
-        # Step 7: Add function node to set mesh physics settings from variables
+        # Step 7: Add component reference node for ObstacleMesh (for BeginPlay chain)
+        get_comp_params = {
+            "blueprint_name": "PhysicsObstacleBP",
+            "component_name": "ObstacleMesh",
+            "node_position": [150, 0]
+        }
+
+        response = send_command(sock, "add_blueprint_get_self_component_reference", get_comp_params)
+
+        if not response or response.get("status") != "success":
+            logger.error(f"Failed to add component reference node: {response}")
+            return
+
+        logger.info("Component reference node (for SetMassScale) added successfully!")
+        comp_ref_node_id_1 = response.get("result", {}).get("node_id")
+
+        # Close and reopen connection
+        sock.close()
+        sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        sock.settimeout(5.0)
+        sock.connect(("127.0.0.1", 55557))
+
+        # Step 8: Add SetMassScale function node
         function_params = {
             "blueprint_name": "PhysicsObstacleBP",
-            "target": "ObstacleMesh",
+            "target": "PrimitiveComponent",
             "function_name": "SetMassScale",
             "params": {
                 "BoneName": "None",
-                "InMassScale": 10.0  # This will be replaced by the Mass variable dynamically
+                "InMassScale": 10.0
             },
-            "node_position": [300, 0]
+            "node_position": [400, 0]
         }
-        
+
         response = send_command(sock, "add_blueprint_function_node", function_params)
-        
-        if not response or response.get("status") != "success" or not response.get("result", {}).get("success"):
-            logger.error(f"Failed to add function node: {response}")
+
+        if not response or response.get("status") != "success":
+            logger.error(f"Failed to add SetMassScale function node: {response}")
             return
-            
+
         logger.info("SetMassScale function node added successfully!")
-        
-        # Save the node ID for later connections
         set_mass_node_id = response.get("result", {}).get("node_id")
-        
+
         # Close and reopen connection
         sock.close()
         sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         sock.settimeout(5.0)
         sock.connect(("127.0.0.1", 55557))
-        
-        # Step 8: Add function node to rotate the obstacle
+
+        # Step 9: Add component reference node for ObstacleMesh (for Tick chain)
+        get_comp_params = {
+            "blueprint_name": "PhysicsObstacleBP",
+            "component_name": "ObstacleMesh",
+            "node_position": [150, 200]
+        }
+
+        response = send_command(sock, "add_blueprint_get_self_component_reference", get_comp_params)
+
+        if not response or response.get("status") != "success":
+            logger.error(f"Failed to add component reference node: {response}")
+            return
+
+        logger.info("Component reference node (for AddTorqueInRadians) added successfully!")
+        comp_ref_node_id_2 = response.get("result", {}).get("node_id")
+
+        # Close and reopen connection
+        sock.close()
+        sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        sock.settimeout(5.0)
+        sock.connect(("127.0.0.1", 55557))
+
+        # Step 10: Add AddTorqueInRadians function node
         function_params = {
             "blueprint_name": "PhysicsObstacleBP",
-            "target": "ObstacleMesh",
+            "target": "PrimitiveComponent",
             "function_name": "AddTorqueInRadians",
             "params": {
-                "Torque": [0, 0, 100.0],  # This should be connected to the RotationSpeed variable
+                "Torque": [0, 0, 100.0],
                 "BoneName": "None",
                 "bAccelChange": True
             },
-            "node_position": [300, 200]
+            "node_position": [400, 200]
         }
-        
+
         response = send_command(sock, "add_blueprint_function_node", function_params)
-        
-        if not response or response.get("status") != "success" or not response.get("result", {}).get("success"):
-            logger.error(f"Failed to add function node: {response}")
+
+        if not response or response.get("status") != "success":
+            logger.error(f"Failed to add AddTorqueInRadians function node: {response}")
             return
-            
+
         logger.info("AddTorqueInRadians function node added successfully!")
-        
-        # Save the node ID for later connections
         add_torque_node_id = response.get("result", {}).get("node_id")
-        
+
         # Close and reopen connection
         sock.close()
         sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         sock.settimeout(5.0)
         sock.connect(("127.0.0.1", 55557))
-        
-        # Step 9: Connect BeginPlay to SetMassScale
+
+        # Step 11: Connect BeginPlay -> SetMassScale (execution)
         connect_params = {
             "blueprint_name": "PhysicsObstacleBP",
             "source_node_id": begin_play_node_id,
-            "source_pin": "Then",  # Execute pin on BeginPlay event
+            "source_pin": "Then",
             "target_node_id": set_mass_node_id,
-            "target_pin": "execute"  # Execute pin on function
+            "target_pin": "execute"
         }
-        
+
         response = send_command(sock, "connect_blueprint_nodes", connect_params)
-        
-        if not response or response.get("status") != "success" or not response.get("result", {}).get("success"):
-            logger.error(f"Failed to connect nodes: {response}")
+
+        if not response or response.get("status") != "success":
+            logger.error(f"Failed to connect BeginPlay to SetMassScale: {response}")
             return
-            
+
         logger.info("BeginPlay connected to SetMassScale successfully!")
-        
+
         # Close and reopen connection
         sock.close()
         sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         sock.settimeout(5.0)
         sock.connect(("127.0.0.1", 55557))
-        
-        # Step 10: Connect Tick to AddTorqueInRadians
+
+        # Step 12: Connect component ref -> SetMassScale target
+        connect_params = {
+            "blueprint_name": "PhysicsObstacleBP",
+            "source_node_id": comp_ref_node_id_1,
+            "source_pin": "ObstacleMesh",
+            "target_node_id": set_mass_node_id,
+            "target_pin": "self"
+        }
+
+        response = send_command(sock, "connect_blueprint_nodes", connect_params)
+
+        if not response or response.get("status") != "success":
+            logger.error(f"Failed to connect component ref to SetMassScale: {response}")
+            return
+
+        logger.info("Component ref connected to SetMassScale target successfully!")
+
+        # Close and reopen connection
+        sock.close()
+        sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        sock.settimeout(5.0)
+        sock.connect(("127.0.0.1", 55557))
+
+        # Step 13: Connect Tick -> AddTorqueInRadians (execution)
         connect_params = {
             "blueprint_name": "PhysicsObstacleBP",
             "source_node_id": tick_node_id,
-            "source_pin": "Then",  # Execute pin on Tick event
+            "source_pin": "Then",
             "target_node_id": add_torque_node_id,
-            "target_pin": "execute"  # Execute pin on function
+            "target_pin": "execute"
         }
-        
+
         response = send_command(sock, "connect_blueprint_nodes", connect_params)
-        
-        if not response or response.get("status") != "success" or not response.get("result", {}).get("success"):
-            logger.error(f"Failed to connect nodes: {response}")
+
+        if not response or response.get("status") != "success":
+            logger.error(f"Failed to connect Tick to AddTorqueInRadians: {response}")
             return
-            
+
         logger.info("Tick connected to AddTorqueInRadians successfully!")
-        
+
+        # Close and reopen connection
+        sock.close()
+        sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        sock.settimeout(5.0)
+        sock.connect(("127.0.0.1", 55557))
+
+        # Step 14: Connect component ref -> AddTorqueInRadians target
+        connect_params = {
+            "blueprint_name": "PhysicsObstacleBP",
+            "source_node_id": comp_ref_node_id_2,
+            "source_pin": "ObstacleMesh",
+            "target_node_id": add_torque_node_id,
+            "target_pin": "self"
+        }
+
+        response = send_command(sock, "connect_blueprint_nodes", connect_params)
+
+        if not response or response.get("status") != "success":
+            logger.error(f"Failed to connect component ref to AddTorqueInRadians: {response}")
+            return
+
+        logger.info("Component ref connected to AddTorqueInRadians target successfully!")
+
         # Close and reopen connection
         sock.close()
         sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         sock.settimeout(5.0)
         sock.connect(("127.0.0.1", 55557))
         
-        # Step 11: Compile the blueprint
+        # Step 15: Compile the blueprint
         compile_params = {
             "blueprint_name": "PhysicsObstacleBP"
         }
         
         response = send_command(sock, "compile_blueprint", compile_params)
         
-        if not response or response.get("status") != "success" or not response.get("result", {}).get("success"):
+        if not response or response.get("status") != "success":
             logger.error(f"Failed to compile blueprint: {response}")
             return
             
@@ -356,7 +463,7 @@ def main():
         sock.settimeout(5.0)
         sock.connect(("127.0.0.1", 55557))
         
-        # Step 12: Spawn multiple instances of the obstacle at different positions
+        # Step 16: Spawn multiple instances of the obstacle at different positions
         positions = [
             [100.0, 0.0, 200.0],
             [0.0, 100.0, 200.0],
@@ -375,7 +482,7 @@ def main():
             
             response = send_command(sock, "spawn_blueprint_actor", spawn_params)
             
-            if not response or response.get("status") != "success" or not response.get("result", {}).get("success"):
+            if not response or response.get("status") != "success":
                 logger.error(f"Failed to spawn blueprint actor {i+1}: {response}")
                 return
                 

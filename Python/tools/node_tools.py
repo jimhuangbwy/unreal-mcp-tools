@@ -118,7 +118,110 @@ def register_blueprint_node_tools(mcp: FastMCP):
             error_msg = f"Error adding input action node: {e}"
             logger.error(error_msg)
             return {"success": False, "message": error_msg}
-    
+
+    @mcp.tool()
+    def add_blueprint_enhanced_input_action_node(
+        ctx: Context,
+        blueprint_name: str,
+        action_name: str,
+        node_position = None
+    ) -> Dict[str, Any]:
+        """
+        Add an Enhanced Input Action event node to a Blueprint's event graph.
+        Requires a UInputAction asset created via create_input_action.
+        Output pins: Triggered, Started, Ongoing, Canceled, Completed.
+
+        Args:
+            blueprint_name: Name of the target Blueprint
+            action_name: Name of the InputAction asset (e.g., IA_Jump)
+            node_position: Optional [X, Y] position in the graph
+
+        Returns:
+            Response containing the node ID and success status
+        """
+        from unreal_mcp_server import get_unreal_connection
+
+        try:
+            if node_position is None:
+                node_position = [0, 0]
+
+            params = {
+                "blueprint_name": blueprint_name,
+                "action_name": action_name,
+                "node_position": node_position
+            }
+
+            unreal = get_unreal_connection()
+            if not unreal:
+                logger.error("Failed to connect to Unreal Engine")
+                return {"success": False, "message": "Failed to connect to Unreal Engine"}
+
+            logger.info(f"Adding enhanced input action node for '{action_name}' to blueprint '{blueprint_name}'")
+            response = unreal.send_command("add_blueprint_enhanced_input_action_node", params)
+
+            if not response:
+                logger.error("No response from Unreal Engine")
+                return {"success": False, "message": "No response from Unreal Engine"}
+
+            logger.info(f"Enhanced input action node creation response: {response}")
+            return response
+
+        except Exception as e:
+            error_msg = f"Error adding enhanced input action node: {e}"
+            logger.error(error_msg)
+            return {"success": False, "message": error_msg}
+
+    @mcp.tool()
+    def add_blueprint_get_subsystem_node(
+        ctx: Context,
+        blueprint_name: str,
+        subsystem_class: str,
+        node_position = None
+    ) -> Dict[str, Any]:
+        """
+        Add a Get Subsystem node (K2Node_GetSubsystemFromPC) to a Blueprint's event graph.
+        Takes a PlayerController input and returns the specified subsystem with the correct type.
+
+        Args:
+            blueprint_name: Name of the target Blueprint
+            subsystem_class: Subsystem class name (e.g., EnhancedInputLocalPlayerSubsystem)
+            node_position: Optional [X, Y] position in the graph
+
+        Returns:
+            Response containing the node ID and success status
+        """
+        from unreal_mcp_server import get_unreal_connection
+
+        try:
+            if node_position is None:
+                node_position = [0, 0]
+
+            params = {
+                "blueprint_name": blueprint_name,
+                "subsystem_class": subsystem_class,
+                "node_position": node_position
+            }
+
+            unreal = get_unreal_connection()
+            if not unreal:
+                logger.error("Failed to connect to Unreal Engine")
+                return {"success": False, "message": "Failed to connect to Unreal Engine"}
+
+            logger.info(f"Adding get subsystem node for '{subsystem_class}' to blueprint '{blueprint_name}'")
+            response = unreal.send_command("add_blueprint_get_subsystem_node", params)
+
+            if not response:
+                logger.error("No response from Unreal Engine")
+                return {"success": False, "message": "No response from Unreal Engine"}
+
+            logger.info(f"Get subsystem node creation response: {response}")
+            return response
+
+        except Exception as e:
+            error_msg = f"Error adding get subsystem node: {e}"
+            logger.error(error_msg)
+            return {"success": False, "message": error_msg}
+
     @mcp.tool()
     def add_blueprint_function_node(
         ctx: Context,

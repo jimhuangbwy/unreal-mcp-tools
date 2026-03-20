@@ -9,7 +9,10 @@
 #include "K2Node_CallFunction.h"
 #include "K2Node_VariableGet.h"
 #include "K2Node_InputAction.h"
+#include "K2Node_EnhancedInputAction.h"
+#include "InputAction.h"
 #include "K2Node_Self.h"
+#include "K2Node_GetSubsystem.h"
 #include "Kismet2/BlueprintEditorUtils.h"
 #include "Kismet2/KismetEditorUtilities.h"
 #include "GameFramework/InputSettings.h"
@@ -49,6 +52,14 @@ TSharedPtr<FJsonObject> FUnrealMCPBlueprintNodeCommands::HandleCommand(const FSt
     else if (CommandType == TEXT("add_blueprint_input_action_node"))
     {
         return HandleAddBlueprintInputActionNode(Params);
+    }
+    else if (CommandType == TEXT("add_blueprint_enhanced_input_action_node"))
+    {
+        return HandleAddBlueprintEnhancedInputActionNode(Params);
+    }
+    else if (CommandType == TEXT("add_blueprint_get_subsystem_node"))
+    {
+        return HandleAddBlueprintGetSubsystemNode(Params);
     }
     else if (CommandType == TEXT("add_blueprint_self_reference"))
     {
@@ -340,7 +351,7 @@ TSharedPtr<FJsonObject> FUnrealMCPBlueprintNodeCommands::HandleAddBlueprintFunct
         }
 
         // Try loading from known module paths
-        static const TCHAR* Modules[] = { TEXT("Engine"), TEXT("UMG"), TEXT("AIModule"), TEXT("NavigationSystem"), TEXT("HeadMountedDisplay") };
+        static const TCHAR* Modules[] = { TEXT("Engine"), TEXT("UMG"), TEXT("AIModule"), TEXT("NavigationSystem"), TEXT("HeadMountedDisplay"), TEXT("EnhancedInput") };
         for (const FString& Candidate : CandidateNames)
         {
             for (const TCHAR* Module : Modules)
@@ -500,7 +511,7 @@ TSharedPtr<FJsonObject> FUnrealMCPBlueprintNodeCommands::HandleAddBlueprintFunct
                             {
                                 // Strip prefix (A/U) to get the raw class name for module path lookup
                                 FString RawName = (ClassName.StartsWith(TEXT("A")) || ClassName.StartsWith(TEXT("U"))) ? ClassName.Mid(1) : ClassName;
-                                for (const TCHAR* Mod : { TEXT("Engine"), TEXT("UMG"), TEXT("AIModule") })
+                                for (const TCHAR* Mod : { TEXT("Engine"), TEXT("UMG"), TEXT("AIModule"), TEXT("EnhancedInput") })
                                 {
                                     FString ClassPath = FString::Printf(TEXT("/Script/%s.%s"), Mod, *RawName);
                                     Class = LoadObject<UClass>(nullptr, *ClassPath);
@@ -529,6 +540,37 @@ TSharedPtr<FJsonObject> FUnrealMCPBlueprintNodeCommands::HandleAddBlueprintFunct
                             }
 
                             UE_LOG(LogUnrealMCP, Log, TEXT("Successfully set class reference for pin '%s' to '%s'"), *ParamPin->PinName.ToString(), *ClassName);
+                            continue;
+                        }
+                        else if (ParamPin->PinType.PinCategory == UEdGraphSchema_K2::PC_Object ||
+                                 ParamPin->PinType.PinCategory == UEdGraphSchema_K2::PC_SoftObject)
+                        {
+                            // Handle object reference parameters (e.g., MappingContext in AddMappingContext)
+                            // Try loading from the provided path
+                            UObject* LoadedObject = LoadObject<UObject>(nullptr, *StringVal);
+                            if (!LoadedObject)
+                            {
+                                // Try adding the asset name as sub-path
+                                FString AssetName = FPackageName::GetShortName(StringVal);
+                                FString FullPath = FString::Printf(TEXT("%s.%s"), *StringVal, *AssetName);
+                                LoadedObject = LoadObject<UObject>(nullptr, *FullPath);
+                            }
+
+                            if (LoadedObject)
+                            {
+                                const UEdGraphSchema_K2* K2Schema = Cast<const UEdGraphSchema_K2>(EventGraph->GetSchema());
+                                if (K2Schema)
+                                {
+                                    K2Schema->TrySetDefaultObject(*ParamPin, LoadedObject);
+                                }
+                                UE_LOG(LogTemp, Display, TEXT("  Set object reference for pin '%s' to: '%s'"),
+                                       *ParamName, *StringVal);
+                            }
+                            else
+                            {
+                                UE_LOG(LogTemp, Warning, TEXT("  Failed to load object for pin '%s' from path: '%s'"),
+                                       *ParamName, *StringVal);
+                            }
                             continue;
                         }
                         else if (ParamPin->PinType.PinCategory == UEdGraphSchema_K2::PC_Int)
@@ -567,13 +609,13 @@ TSharedPtr<FJsonObject> FUnrealMCPBlueprintNodeCommands::HandleAddBlueprintFunct
                                     float X = (*ArrayValue)[0]->AsNumber();
                                     float Y = (*ArrayValue)[1]->AsNumber();
                                     float Z = (*ArrayValue)[2]->AsNumber();
-                                    
+
                                     FString VectorString = FString::Printf(TEXT("(X=%f,Y=%f,Z=%f)"), X, Y, Z);
                                     ParamPin->DefaultValue = VectorString;
-                                    
-                                    UE_LOG(LogTemp, Display, TEXT("  Set vector parameter '%s' to: %s"), 
+
+                                    UE_LOG(LogTemp, Display, TEXT("  Set vector parameter '%s' to: %s"),
                                            *ParamName, *VectorString);
-                                    UE_LOG(LogTemp, Display, TEXT("  Final pin value: '%s'"), 
+                                    UE_LOG(LogTemp, Display, TEXT("  Final pin value: '%s'"),
                                            *ParamPin->DefaultValue);
                                 }
                                 else
@@ -581,6 +623,13 @@ TSharedPtr<FJsonObject> FUnrealMCPBlueprintNodeCommands::HandleAddBlueprintFunct
                                     UE_LOG(LogTemp, Warning, TEXT("Array parameter type not fully supported yet"));
                                 }
                             }
+                        }
+                        else
+                        {
+                            // Default: set the string value directly (handles PC_String, PC_Name, PC_Text, etc.)
+                            ParamPin->DefaultValue = StringVal;
+                            UE_LOG(LogTemp, Display, TEXT("  Set string parameter '%s' to: '%s'"),
+                                   *ParamName, *StringVal);
                         }
                     }
                     else if (ParamValue->Type == EJson::Number)
@@ -804,6 +853,148 @@ TSharedPtr<FJsonObject> FUnrealMCPBlueprintNodeCommands::HandleAddBlueprintInput
 
     TSharedPtr<FJsonObject> ResultObj = MakeShared<FJsonObject>();
     ResultObj->SetStringField(TEXT("node_id"), InputActionNode->NodeGuid.ToString());
+    return ResultObj;
+}
+
+TSharedPtr<FJsonObject> FUnrealMCPBlueprintNodeCommands::HandleAddBlueprintEnhancedInputActionNode(const TSharedPtr<FJsonObject>& Params)
+{
+    FString BlueprintName;
+    if (!Params->TryGetStringField(TEXT("blueprint_name"), BlueprintName))
+    {
+        return FUnrealMCPCommonUtils::CreateErrorResponse(TEXT("Missing 'blueprint_name' parameter"));
+    }
+
+    FString ActionName;
+    if (!Params->TryGetStringField(TEXT("action_name"), ActionName))
+    {
+        return FUnrealMCPCommonUtils::CreateErrorResponse(TEXT("Missing 'action_name' parameter"));
+    }
+
+    FVector2D NodePosition(0.0f, 0.0f);
+    if (Params->HasField(TEXT("node_position")))
+    {
+        NodePosition = FUnrealMCPCommonUtils::GetVector2DFromJson(Params, TEXT("node_position"));
+    }
+
+    // Find the blueprint
+    UBlueprint* Blueprint = FUnrealMCPCommonUtils::FindBlueprint(BlueprintName);
+    if (!Blueprint)
+    {
+        return FUnrealMCPCommonUtils::CreateErrorResponse(FString::Printf(TEXT("Blueprint not found: %s"), *BlueprintName));
+    }
+
+    // Get the event graph
+    UEdGraph* EventGraph = FUnrealMCPCommonUtils::FindOrCreateEventGraph(Blueprint);
+    if (!EventGraph)
+    {
+        return FUnrealMCPCommonUtils::CreateErrorResponse(TEXT("Failed to get event graph"));
+    }
+
+    // Load the InputAction asset
+    FString ActionPath = FString::Printf(TEXT("/Game/Input/%s.%s"), *ActionName, *ActionName);
+    UInputAction* InputAction = LoadObject<UInputAction>(nullptr, *ActionPath);
+    if (!InputAction)
+    {
+        return FUnrealMCPCommonUtils::CreateErrorResponse(FString::Printf(TEXT("InputAction asset not found: %s"), *ActionPath));
+    }
+
+    // Create the Enhanced Input Action node
+    UK2Node_EnhancedInputAction* EnhancedNode = NewObject<UK2Node_EnhancedInputAction>(EventGraph);
+    if (!EnhancedNode)
+    {
+        return FUnrealMCPCommonUtils::CreateErrorResponse(TEXT("Failed to create EnhancedInputAction node"));
+    }
+
+    EnhancedNode->InputAction = InputAction;
+    EnhancedNode->NodePosX = NodePosition.X;
+    EnhancedNode->NodePosY = NodePosition.Y;
+    EventGraph->AddNode(EnhancedNode, true);
+    EnhancedNode->CreateNewGuid();
+    EnhancedNode->PostPlacedNewNode();
+    EnhancedNode->AllocateDefaultPins();
+
+    // Mark the blueprint as modified
+    FBlueprintEditorUtils::MarkBlueprintAsModified(Blueprint);
+
+    TSharedPtr<FJsonObject> ResultObj = MakeShared<FJsonObject>();
+    ResultObj->SetStringField(TEXT("node_id"), EnhancedNode->NodeGuid.ToString());
+    return ResultObj;
+}
+
+TSharedPtr<FJsonObject> FUnrealMCPBlueprintNodeCommands::HandleAddBlueprintGetSubsystemNode(const TSharedPtr<FJsonObject>& Params)
+{
+    FString BlueprintName;
+    if (!Params->TryGetStringField(TEXT("blueprint_name"), BlueprintName))
+    {
+        return FUnrealMCPCommonUtils::CreateErrorResponse(TEXT("Missing 'blueprint_name' parameter"));
+    }
+
+    FString SubsystemClass;
+    if (!Params->TryGetStringField(TEXT("subsystem_class"), SubsystemClass))
+    {
+        return FUnrealMCPCommonUtils::CreateErrorResponse(TEXT("Missing 'subsystem_class' parameter"));
+    }
+
+    FVector2D NodePosition(0.0f, 0.0f);
+    if (Params->HasField(TEXT("node_position")))
+    {
+        NodePosition = FUnrealMCPCommonUtils::GetVector2DFromJson(Params, TEXT("node_position"));
+    }
+
+    UBlueprint* Blueprint = FUnrealMCPCommonUtils::FindBlueprint(BlueprintName);
+    if (!Blueprint)
+    {
+        return FUnrealMCPCommonUtils::CreateErrorResponse(FString::Printf(TEXT("Blueprint not found: %s"), *BlueprintName));
+    }
+
+    UEdGraph* EventGraph = FUnrealMCPCommonUtils::FindOrCreateEventGraph(Blueprint);
+    if (!EventGraph)
+    {
+        return FUnrealMCPCommonUtils::CreateErrorResponse(TEXT("Failed to get event graph"));
+    }
+
+    // Load the subsystem class
+    FString CleanName = SubsystemClass.StartsWith(TEXT("U")) ? SubsystemClass.Mid(1) : SubsystemClass;
+    UClass* TargetClass = nullptr;
+    static const TCHAR* Modules[] = { TEXT("Engine"), TEXT("EnhancedInput"), TEXT("AIModule"), TEXT("NavigationSystem") };
+    for (const TCHAR* Module : Modules)
+    {
+        FString ClassPath = FString::Printf(TEXT("/Script/%s.%s"), Module, *CleanName);
+        TargetClass = LoadObject<UClass>(nullptr, *ClassPath);
+        if (TargetClass) break;
+    }
+
+    if (!TargetClass)
+    {
+        return FUnrealMCPCommonUtils::CreateErrorResponse(FString::Printf(TEXT("Subsystem class not found: %s"), *SubsystemClass));
+    }
+
+    // Create K2Node_GetSubsystemFromPC node
+    // UK2Node_GetSubsystemFromPC is not exported, so find the class by name
+    UClass* NodeClass = FindObject<UClass>(nullptr, TEXT("/Script/BlueprintGraph.K2Node_GetSubsystemFromPC"));
+    if (!NodeClass)
+    {
+        return FUnrealMCPCommonUtils::CreateErrorResponse(TEXT("Failed to find K2Node_GetSubsystemFromPC class"));
+    }
+
+    UK2Node_GetSubsystem* SubsystemNode = Cast<UK2Node_GetSubsystem>(NewObject<UObject>(EventGraph, NodeClass));
+    if (!SubsystemNode)
+    {
+        return FUnrealMCPCommonUtils::CreateErrorResponse(TEXT("Failed to create GetSubsystemFromPC node"));
+    }
+
+    SubsystemNode->Initialize(TargetClass);
+    SubsystemNode->NodePosX = NodePosition.X;
+    SubsystemNode->NodePosY = NodePosition.Y;
+    EventGraph->AddNode(SubsystemNode, true);
+    SubsystemNode->CreateNewGuid();
+    SubsystemNode->PostPlacedNewNode();
+    SubsystemNode->AllocateDefaultPins();
+
+    FBlueprintEditorUtils::MarkBlueprintAsModified(Blueprint);
+
+    TSharedPtr<FJsonObject> ResultObj = MakeShared<FJsonObject>();
+    ResultObj->SetStringField(TEXT("node_id"), SubsystemNode->NodeGuid.ToString());
     return ResultObj;
 }
 

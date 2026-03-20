@@ -51,7 +51,9 @@ public class UnrealMCPTools : ModuleRules
 				"KismetCompiler",
 				"BlueprintGraph",
 				"Projects",
-				"AssetRegistry"
+				"AssetRegistry",
+				"EnhancedInput",
+				"InputBlueprintNodes"
 			}
 		);
 		

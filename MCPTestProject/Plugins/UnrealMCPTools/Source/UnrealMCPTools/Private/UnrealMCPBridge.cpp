@@ -257,6 +257,8 @@ FString UUnrealMCPBridge::ExecuteCommand(const FString& CommandType, const TShar
                      CommandType == TEXT("find_blueprint_nodes") ||
                      CommandType == TEXT("add_blueprint_event_node") ||
                      CommandType == TEXT("add_blueprint_input_action_node") ||
+                     CommandType == TEXT("add_blueprint_enhanced_input_action_node") ||
+                     CommandType == TEXT("add_blueprint_get_subsystem_node") ||
                      CommandType == TEXT("add_blueprint_function_node") ||
                      CommandType == TEXT("add_blueprint_get_component_node") ||
                      CommandType == TEXT("add_blueprint_variable"))
@@ -264,7 +266,9 @@ FString UUnrealMCPBridge::ExecuteCommand(const FString& CommandType, const TShar
                 ResultJson = BlueprintNodeCommands->HandleCommand(CommandType, Params);
             }
             // Project Commands
-            else if (CommandType == TEXT("create_input_mapping"))
+            else if (CommandType == TEXT("create_input_mapping") ||
+                     CommandType == TEXT("create_input_action") ||
+                     CommandType == TEXT("create_input_mapping_context"))
             {
                 ResultJson = ProjectCommands->HandleCommand(CommandType, Params);
             }
