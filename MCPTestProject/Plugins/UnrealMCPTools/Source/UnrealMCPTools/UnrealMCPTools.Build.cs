@@ -53,7 +53,8 @@ public class UnrealMCPTools : ModuleRules
 				"Projects",
 				"AssetRegistry",
 				"EnhancedInput",
-				"InputBlueprintNodes"
+				"InputBlueprintNodes",
+				"MaterialEditor"
 			}
 		);
 		

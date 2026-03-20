@@ -23,6 +23,7 @@ wheels/
 # IDE
 .idea/
 .vscode/
+.claud/
 
 # Unreal Engine generated files
 Binaries/

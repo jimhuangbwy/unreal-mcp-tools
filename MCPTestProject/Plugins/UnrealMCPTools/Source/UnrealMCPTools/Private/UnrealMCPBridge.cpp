@@ -69,6 +69,7 @@ UUnrealMCPBridge::UUnrealMCPBridge()
     BlueprintNodeCommands = MakeShared<FUnrealMCPBlueprintNodeCommands>();
     ProjectCommands = MakeShared<FUnrealMCPProjectCommands>();
     UMGCommands = MakeShared<FUnrealMCPUMGCommands>();
+    MaterialCommands = MakeShared<FUnrealMCPMaterialCommands>();
 }
 
 UUnrealMCPBridge::~UUnrealMCPBridge()
@@ -78,6 +79,7 @@ UUnrealMCPBridge::~UUnrealMCPBridge()
     BlueprintNodeCommands.Reset();
     ProjectCommands.Reset();
     UMGCommands.Reset();
+    MaterialCommands.Reset();
 }
 
 // Initialize subsystem
@@ -284,6 +286,35 @@ FString UUnrealMCPBridge::ExecuteCommand(const FString& CommandType, const TShar
                      CommandType == TEXT("get_level_info"))
             {
                 ResultJson = ProjectCommands->HandleCommand(CommandType, Params);
+            }
+            // Material Commands
+            else if (CommandType == TEXT("create_material") ||
+                     CommandType == TEXT("set_material_properties") ||
+                     CommandType == TEXT("get_material_info") ||
+                     CommandType == TEXT("delete_material") ||
+                     CommandType == TEXT("add_material_expression") ||
+                     CommandType == TEXT("connect_material_expression") ||
+                     CommandType == TEXT("connect_to_material_input") ||
+                     CommandType == TEXT("disconnect_material_expression") ||
+                     CommandType == TEXT("remove_material_expression") ||
+                     CommandType == TEXT("get_material_connections") ||
+                     CommandType == TEXT("create_material_instance") ||
+                     CommandType == TEXT("set_material_instance_scalar_param") ||
+                     CommandType == TEXT("set_material_instance_vector_param") ||
+                     CommandType == TEXT("set_material_instance_texture_param") ||
+                     CommandType == TEXT("get_material_instance_info") ||
+                     CommandType == TEXT("create_material_parameter_collection") ||
+                     CommandType == TEXT("add_mpc_scalar_parameter") ||
+                     CommandType == TEXT("add_mpc_vector_parameter") ||
+                     CommandType == TEXT("get_mpc_info") ||
+                     CommandType == TEXT("create_material_function") ||
+                     CommandType == TEXT("add_material_function_input") ||
+                     CommandType == TEXT("add_material_function_output") ||
+                     CommandType == TEXT("apply_material_to_actor") ||
+                     CommandType == TEXT("apply_material_to_blueprint_component") ||
+                     CommandType == TEXT("get_material_stats"))
+            {
+                ResultJson = MaterialCommands->HandleCommand(CommandType, Params);
             }
             // UMG Commands
             else if (CommandType == TEXT("create_umg_widget_blueprint") ||
