@@ -150,4 +150,84 @@ def register_project_tools(mcp: FastMCP):
             logger.error(error_msg)
             return {"success": False, "message": error_msg}
 
-    logger.info("Project tools registered successfully") 
+    @mcp.tool()
+    def list_assets(
+        ctx: Context,
+        path: str = "/Game/",
+        class_filter: str = "",
+        recursive: bool = True
+    ) -> Dict[str, Any]:
+        """
+        List assets in the project using the Asset Registry.
+
+        Args:
+            path: Asset path to search (defaults to "/Game/")
+            class_filter: Optional class name filter (e.g., "Blueprint", "InputAction")
+            recursive: Whether to search subdirectories (defaults to True)
+
+        Returns:
+            List of assets with their names, paths, and classes
+        """
+        from unreal_mcp_server import get_unreal_connection
+
+        try:
+            unreal = get_unreal_connection()
+            if not unreal:
+                return {"success": False, "message": "Failed to connect to Unreal Engine"}
+
+            params = {"path": path, "recursive": recursive}
+            if class_filter:
+                params["class_filter"] = class_filter
+
+            response = unreal.send_command("list_assets", params)
+            if not response:
+                return {"success": False, "message": "No response from Unreal Engine"}
+            return response
+        except Exception as e:
+            return {"success": False, "message": f"Error: {e}"}
+
+    @mcp.tool()
+    def get_input_actions(ctx: Context) -> Dict[str, Any]:
+        """
+        List all Enhanced Input Action assets in the project.
+
+        Returns:
+            List of InputAction assets with their names, paths, and value types
+        """
+        from unreal_mcp_server import get_unreal_connection
+
+        try:
+            unreal = get_unreal_connection()
+            if not unreal:
+                return {"success": False, "message": "Failed to connect to Unreal Engine"}
+
+            response = unreal.send_command("get_input_actions", {})
+            if not response:
+                return {"success": False, "message": "No response from Unreal Engine"}
+            return response
+        except Exception as e:
+            return {"success": False, "message": f"Error: {e}"}
+
+    @mcp.tool()
+    def get_level_info(ctx: Context) -> Dict[str, Any]:
+        """
+        Get information about the current level including actor counts by class.
+
+        Returns:
+            Level info including name, path, total actors, actor class breakdown, and sub-levels
+        """
+        from unreal_mcp_server import get_unreal_connection
+
+        try:
+            unreal = get_unreal_connection()
+            if not unreal:
+                return {"success": False, "message": "Failed to connect to Unreal Engine"}
+
+            response = unreal.send_command("get_level_info", {})
+            if not response:
+                return {"success": False, "message": "No response from Unreal Engine"}
+            return response
+        except Exception as e:
+            return {"success": False, "message": f"Error: {e}"}
+
+    logger.info("Project tools registered successfully")

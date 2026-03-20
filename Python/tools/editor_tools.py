@@ -366,4 +366,109 @@ def register_editor_tools(mcp: FastMCP):
             logger.error(error_msg)
             return {"success": False, "message": error_msg}
 
+    @mcp.tool()
+    def get_actor_components(
+        ctx: Context,
+        actor_name: str
+    ) -> Dict[str, Any]:
+        """
+        Get all components on an actor in the level.
+
+        Args:
+            actor_name: Name of the actor to inspect
+
+        Returns:
+            List of components with their names, classes, transforms, and properties
+        """
+        from unreal_mcp_server import get_unreal_connection
+
+        try:
+            unreal = get_unreal_connection()
+            if not unreal:
+                return {"success": False, "message": "Failed to connect to Unreal Engine"}
+
+            response = unreal.send_command("get_actor_components", {"actor_name": actor_name})
+            if not response:
+                return {"success": False, "message": "No response from Unreal Engine"}
+            return response
+        except Exception as e:
+            return {"success": False, "message": f"Error: {e}"}
+
+    @mcp.tool()
+    def get_component_details(
+        ctx: Context,
+        actor_name: str,
+        component_name: str
+    ) -> Dict[str, Any]:
+        """
+        Get detailed properties of a specific component on an actor.
+
+        Args:
+            actor_name: Name of the actor
+            component_name: Name of the component to inspect
+
+        Returns:
+            Component details including all editable properties with their current values
+        """
+        from unreal_mcp_server import get_unreal_connection
+
+        try:
+            unreal = get_unreal_connection()
+            if not unreal:
+                return {"success": False, "message": "Failed to connect to Unreal Engine"}
+
+            response = unreal.send_command("get_component_details", {
+                "actor_name": actor_name,
+                "component_name": component_name
+            })
+            if not response:
+                return {"success": False, "message": "No response from Unreal Engine"}
+            return response
+        except Exception as e:
+            return {"success": False, "message": f"Error: {e}"}
+
+    @mcp.tool()
+    def get_selected_actors(ctx: Context) -> Dict[str, Any]:
+        """
+        Get the currently selected actors in the Unreal Editor.
+
+        Returns:
+            List of selected actors with their names, classes, and transforms
+        """
+        from unreal_mcp_server import get_unreal_connection
+
+        try:
+            unreal = get_unreal_connection()
+            if not unreal:
+                return {"success": False, "message": "Failed to connect to Unreal Engine"}
+
+            response = unreal.send_command("get_selected_actors", {})
+            if not response:
+                return {"success": False, "message": "No response from Unreal Engine"}
+            return response
+        except Exception as e:
+            return {"success": False, "message": f"Error: {e}"}
+
+    @mcp.tool()
+    def get_world_settings(ctx: Context) -> Dict[str, Any]:
+        """
+        Get world settings for the current level.
+
+        Returns:
+            World settings including level name, actor count, gravity, game mode, and kill Z
+        """
+        from unreal_mcp_server import get_unreal_connection
+
+        try:
+            unreal = get_unreal_connection()
+            if not unreal:
+                return {"success": False, "message": "Failed to connect to Unreal Engine"}
+
+            response = unreal.send_command("get_world_settings", {})
+            if not response:
+                return {"success": False, "message": "No response from Unreal Engine"}
+            return response
+        except Exception as e:
+            return {"success": False, "message": f"Error: {e}"}
+
     logger.info("Editor tools registered successfully")

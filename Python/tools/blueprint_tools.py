@@ -417,4 +417,177 @@ def register_blueprint_tools(mcp: FastMCP):
             logger.error(error_msg)
             return {"success": False, "message": error_msg}
     
-    logger.info("Blueprint tools registered successfully") 
+    @mcp.tool()
+    def get_blueprint_info(
+        ctx: Context,
+        blueprint_name: str
+    ) -> Dict[str, Any]:
+        """
+        Get overview information about a Blueprint asset.
+
+        Args:
+            blueprint_name: Name of the Blueprint to inspect
+
+        Returns:
+            Blueprint info including parent class, compilation status, counts of variables/components/graphs
+        """
+        from unreal_mcp_server import get_unreal_connection
+
+        try:
+            unreal = get_unreal_connection()
+            if not unreal:
+                return {"success": False, "message": "Failed to connect to Unreal Engine"}
+
+            response = unreal.send_command("get_blueprint_info", {"blueprint_name": blueprint_name})
+            if not response:
+                return {"success": False, "message": "No response from Unreal Engine"}
+            return response
+        except Exception as e:
+            return {"success": False, "message": f"Error: {e}"}
+
+    @mcp.tool()
+    def get_blueprint_variables(
+        ctx: Context,
+        blueprint_name: str
+    ) -> Dict[str, Any]:
+        """
+        Get all user-defined variables in a Blueprint.
+
+        Args:
+            blueprint_name: Name of the Blueprint to inspect
+
+        Returns:
+            List of variables with their names, types, default values, and editability
+        """
+        from unreal_mcp_server import get_unreal_connection
+
+        try:
+            unreal = get_unreal_connection()
+            if not unreal:
+                return {"success": False, "message": "Failed to connect to Unreal Engine"}
+
+            response = unreal.send_command("get_blueprint_variables", {"blueprint_name": blueprint_name})
+            if not response:
+                return {"success": False, "message": "No response from Unreal Engine"}
+            return response
+        except Exception as e:
+            return {"success": False, "message": f"Error: {e}"}
+
+    @mcp.tool()
+    def get_blueprint_functions(
+        ctx: Context,
+        blueprint_name: str
+    ) -> Dict[str, Any]:
+        """
+        Get all user-defined functions in a Blueprint.
+
+        Args:
+            blueprint_name: Name of the Blueprint to inspect
+
+        Returns:
+            List of functions with their names, node counts, and input parameters
+        """
+        from unreal_mcp_server import get_unreal_connection
+
+        try:
+            unreal = get_unreal_connection()
+            if not unreal:
+                return {"success": False, "message": "Failed to connect to Unreal Engine"}
+
+            response = unreal.send_command("get_blueprint_functions", {"blueprint_name": blueprint_name})
+            if not response:
+                return {"success": False, "message": "No response from Unreal Engine"}
+            return response
+        except Exception as e:
+            return {"success": False, "message": f"Error: {e}"}
+
+    @mcp.tool()
+    def get_blueprint_components(
+        ctx: Context,
+        blueprint_name: str
+    ) -> Dict[str, Any]:
+        """
+        Get all components in a Blueprint's construction script.
+
+        Args:
+            blueprint_name: Name of the Blueprint to inspect
+
+        Returns:
+            List of components with their names, classes, transforms, and hierarchy
+        """
+        from unreal_mcp_server import get_unreal_connection
+
+        try:
+            unreal = get_unreal_connection()
+            if not unreal:
+                return {"success": False, "message": "Failed to connect to Unreal Engine"}
+
+            response = unreal.send_command("get_blueprint_components", {"blueprint_name": blueprint_name})
+            if not response:
+                return {"success": False, "message": "No response from Unreal Engine"}
+            return response
+        except Exception as e:
+            return {"success": False, "message": f"Error: {e}"}
+
+    @mcp.tool()
+    def get_blueprint_graph(
+        ctx: Context,
+        blueprint_name: str,
+        graph_name: str = "EventGraph"
+    ) -> Dict[str, Any]:
+        """
+        Get all nodes and connections in a Blueprint graph.
+
+        Args:
+            blueprint_name: Name of the Blueprint to inspect
+            graph_name: Name of the graph to read (defaults to "EventGraph")
+
+        Returns:
+            List of nodes with their types, positions, pins, and connections
+        """
+        from unreal_mcp_server import get_unreal_connection
+
+        try:
+            unreal = get_unreal_connection()
+            if not unreal:
+                return {"success": False, "message": "Failed to connect to Unreal Engine"}
+
+            response = unreal.send_command("get_blueprint_graph", {
+                "blueprint_name": blueprint_name,
+                "graph_name": graph_name
+            })
+            if not response:
+                return {"success": False, "message": "No response from Unreal Engine"}
+            return response
+        except Exception as e:
+            return {"success": False, "message": f"Error: {e}"}
+
+    @mcp.tool()
+    def get_blueprint_complexity(
+        ctx: Context,
+        blueprint_name: str
+    ) -> Dict[str, Any]:
+        """
+        Get complexity metrics for a Blueprint (node counts, connections, events, function calls).
+
+        Args:
+            blueprint_name: Name of the Blueprint to analyze
+
+        Returns:
+            Complexity metrics including total nodes, connections, event count, function call count
+        """
+        from unreal_mcp_server import get_unreal_connection
+
+        try:
+            unreal = get_unreal_connection()
+            if not unreal:
+                return {"success": False, "message": "Failed to connect to Unreal Engine"}
+
+            response = unreal.send_command("get_blueprint_complexity", {"blueprint_name": blueprint_name})
+            if not response:
+                return {"success": False, "message": "No response from Unreal Engine"}
+            return response
+        except Exception as e:
+            return {"success": False, "message": f"Error: {e}"}
+
+    logger.info("Blueprint tools registered successfully")

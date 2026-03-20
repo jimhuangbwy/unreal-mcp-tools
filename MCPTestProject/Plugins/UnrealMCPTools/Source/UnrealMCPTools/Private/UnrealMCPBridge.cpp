@@ -233,8 +233,12 @@ FString UUnrealMCPBridge::ExecuteCommand(const FString& CommandType, const TShar
                      CommandType == TEXT("get_actor_properties") ||
                      CommandType == TEXT("set_actor_property") ||
                      CommandType == TEXT("spawn_blueprint_actor") ||
-                     CommandType == TEXT("focus_viewport") || 
-                     CommandType == TEXT("take_screenshot"))
+                     CommandType == TEXT("focus_viewport") ||
+                     CommandType == TEXT("take_screenshot") ||
+                     CommandType == TEXT("get_actor_components") ||
+                     CommandType == TEXT("get_component_details") ||
+                     CommandType == TEXT("get_selected_actors") ||
+                     CommandType == TEXT("get_world_settings"))
             {
                 ResultJson = EditorCommands->HandleCommand(CommandType, Params);
             }
@@ -246,7 +250,13 @@ FString UUnrealMCPBridge::ExecuteCommand(const FString& CommandType, const TShar
                      CommandType == TEXT("compile_blueprint") || 
                      CommandType == TEXT("set_blueprint_property") || 
                      CommandType == TEXT("set_static_mesh_properties") ||
-                     CommandType == TEXT("set_pawn_properties"))
+                     CommandType == TEXT("set_pawn_properties") ||
+                     CommandType == TEXT("get_blueprint_info") ||
+                     CommandType == TEXT("get_blueprint_variables") ||
+                     CommandType == TEXT("get_blueprint_functions") ||
+                     CommandType == TEXT("get_blueprint_components") ||
+                     CommandType == TEXT("get_blueprint_graph") ||
+                     CommandType == TEXT("get_blueprint_complexity"))
             {
                 ResultJson = BlueprintCommands->HandleCommand(CommandType, Params);
             }
@@ -268,7 +278,10 @@ FString UUnrealMCPBridge::ExecuteCommand(const FString& CommandType, const TShar
             // Project Commands
             else if (CommandType == TEXT("create_input_mapping") ||
                      CommandType == TEXT("create_input_action") ||
-                     CommandType == TEXT("create_input_mapping_context"))
+                     CommandType == TEXT("create_input_mapping_context") ||
+                     CommandType == TEXT("list_assets") ||
+                     CommandType == TEXT("get_input_actions") ||
+                     CommandType == TEXT("get_level_info"))
             {
                 ResultJson = ProjectCommands->HandleCommand(CommandType, Params);
             }

@@ -20,6 +20,8 @@
 #include "Subsystems/EditorActorSubsystem.h"
 #include "Engine/Blueprint.h"
 #include "Engine/BlueprintGeneratedClass.h"
+#include "GameFramework/WorldSettings.h"
+#include "GameFramework/GameModeBase.h"
 
 FUnrealMCPEditorCommands::FUnrealMCPEditorCommands()
 {
@@ -75,6 +77,23 @@ TSharedPtr<FJsonObject> FUnrealMCPEditorCommands::HandleCommand(const FString& C
         return HandleTakeScreenshot(Params);
     }
     
+    else if (CommandType == TEXT("get_actor_components"))
+    {
+        return HandleGetActorComponents(Params);
+    }
+    else if (CommandType == TEXT("get_component_details"))
+    {
+        return HandleGetComponentDetails(Params);
+    }
+    else if (CommandType == TEXT("get_selected_actors"))
+    {
+        return HandleGetSelectedActors(Params);
+    }
+    else if (CommandType == TEXT("get_world_settings"))
+    {
+        return HandleGetWorldSettings(Params);
+    }
+
     return FUnrealMCPCommonUtils::CreateErrorResponse(FString::Printf(TEXT("Unknown editor command: %s"), *CommandType));
 }
 
@@ -618,4 +637,214 @@ TSharedPtr<FJsonObject> FUnrealMCPEditorCommands::HandleTakeScreenshot(const TSh
     }
     
     return FUnrealMCPCommonUtils::CreateErrorResponse(TEXT("Failed to take screenshot"));
+}
+
+// ── Read/Query Handlers ───────────────────────────────────────────────────
+
+TSharedPtr<FJsonObject> FUnrealMCPEditorCommands::HandleGetActorComponents(const TSharedPtr<FJsonObject>& Params)
+{
+    FString ActorName;
+    if (!Params->TryGetStringField(TEXT("actor_name"), ActorName))
+    {
+        return FUnrealMCPCommonUtils::CreateErrorResponse(TEXT("Missing 'actor_name' parameter"));
+    }
+
+    AActor* TargetActor = nullptr;
+    TArray<AActor*> AllActors;
+    UGameplayStatics::GetAllActorsOfClass(GWorld, AActor::StaticClass(), AllActors);
+    for (AActor* Actor : AllActors)
+    {
+        if (Actor && (Actor->GetName() == ActorName || Actor->GetActorLabel() == ActorName))
+        {
+            TargetActor = Actor;
+            break;
+        }
+    }
+
+    if (!TargetActor)
+    {
+        return FUnrealMCPCommonUtils::CreateErrorResponse(FString::Printf(TEXT("Actor not found: %s"), *ActorName));
+    }
+
+    TArray<TSharedPtr<FJsonValue>> CompArray;
+    TArray<UActorComponent*> Components;
+    TargetActor->GetComponents(Components);
+
+    for (UActorComponent* Comp : Components)
+    {
+        if (!Comp) continue;
+
+        TSharedPtr<FJsonObject> CompObj = MakeShared<FJsonObject>();
+        CompObj->SetStringField(TEXT("name"), Comp->GetName());
+        CompObj->SetStringField(TEXT("class"), Comp->GetClass()->GetName());
+        CompObj->SetBoolField(TEXT("is_active"), Comp->IsActive());
+
+        USceneComponent* SceneComp = Cast<USceneComponent>(Comp);
+        if (SceneComp)
+        {
+            FVector Loc = SceneComp->GetRelativeLocation();
+            FRotator Rot = SceneComp->GetRelativeRotation();
+            FVector Scale = SceneComp->GetRelativeScale3D();
+
+            TArray<TSharedPtr<FJsonValue>> LocArr;
+            LocArr.Add(MakeShared<FJsonValueNumber>(Loc.X));
+            LocArr.Add(MakeShared<FJsonValueNumber>(Loc.Y));
+            LocArr.Add(MakeShared<FJsonValueNumber>(Loc.Z));
+            CompObj->SetArrayField(TEXT("location"), LocArr);
+
+            TArray<TSharedPtr<FJsonValue>> RotArr;
+            RotArr.Add(MakeShared<FJsonValueNumber>(Rot.Pitch));
+            RotArr.Add(MakeShared<FJsonValueNumber>(Rot.Yaw));
+            RotArr.Add(MakeShared<FJsonValueNumber>(Rot.Roll));
+            CompObj->SetArrayField(TEXT("rotation"), RotArr);
+
+            TArray<TSharedPtr<FJsonValue>> ScaleArr;
+            ScaleArr.Add(MakeShared<FJsonValueNumber>(Scale.X));
+            ScaleArr.Add(MakeShared<FJsonValueNumber>(Scale.Y));
+            ScaleArr.Add(MakeShared<FJsonValueNumber>(Scale.Z));
+            CompObj->SetArrayField(TEXT("scale"), ScaleArr);
+        }
+
+        UStaticMeshComponent* MeshComp = Cast<UStaticMeshComponent>(Comp);
+        if (MeshComp && MeshComp->GetStaticMesh())
+        {
+            CompObj->SetStringField(TEXT("static_mesh"), MeshComp->GetStaticMesh()->GetPathName());
+        }
+
+        CompArray.Add(MakeShared<FJsonValueObject>(CompObj));
+    }
+
+    TSharedPtr<FJsonObject> ResultObj = MakeShared<FJsonObject>();
+    ResultObj->SetStringField(TEXT("actor"), ActorName);
+    ResultObj->SetArrayField(TEXT("components"), CompArray);
+    return ResultObj;
+}
+
+TSharedPtr<FJsonObject> FUnrealMCPEditorCommands::HandleGetComponentDetails(const TSharedPtr<FJsonObject>& Params)
+{
+    FString ActorName;
+    if (!Params->TryGetStringField(TEXT("actor_name"), ActorName))
+    {
+        return FUnrealMCPCommonUtils::CreateErrorResponse(TEXT("Missing 'actor_name' parameter"));
+    }
+
+    FString ComponentName;
+    if (!Params->TryGetStringField(TEXT("component_name"), ComponentName))
+    {
+        return FUnrealMCPCommonUtils::CreateErrorResponse(TEXT("Missing 'component_name' parameter"));
+    }
+
+    AActor* TargetActor = nullptr;
+    TArray<AActor*> AllActors;
+    UGameplayStatics::GetAllActorsOfClass(GWorld, AActor::StaticClass(), AllActors);
+    for (AActor* Actor : AllActors)
+    {
+        if (Actor && (Actor->GetName() == ActorName || Actor->GetActorLabel() == ActorName))
+        {
+            TargetActor = Actor;
+            break;
+        }
+    }
+
+    if (!TargetActor)
+    {
+        return FUnrealMCPCommonUtils::CreateErrorResponse(FString::Printf(TEXT("Actor not found: %s"), *ActorName));
+    }
+
+    UActorComponent* TargetComp = nullptr;
+    TArray<UActorComponent*> Components;
+    TargetActor->GetComponents(Components);
+    for (UActorComponent* Comp : Components)
+    {
+        if (Comp && Comp->GetName() == ComponentName)
+        {
+            TargetComp = Comp;
+            break;
+        }
+    }
+
+    if (!TargetComp)
+    {
+        return FUnrealMCPCommonUtils::CreateErrorResponse(FString::Printf(TEXT("Component not found: %s"), *ComponentName));
+    }
+
+    TSharedPtr<FJsonObject> ResultObj = MakeShared<FJsonObject>();
+    ResultObj->SetStringField(TEXT("name"), TargetComp->GetName());
+    ResultObj->SetStringField(TEXT("class"), TargetComp->GetClass()->GetName());
+    ResultObj->SetBoolField(TEXT("is_active"), TargetComp->IsActive());
+
+    TArray<TSharedPtr<FJsonValue>> PropsArray;
+    for (TFieldIterator<FProperty> PropIt(TargetComp->GetClass()); PropIt; ++PropIt)
+    {
+        FProperty* Prop = *PropIt;
+        if (!Prop || !(Prop->PropertyFlags & CPF_Edit)) continue;
+
+        TSharedPtr<FJsonObject> PropObj = MakeShared<FJsonObject>();
+        PropObj->SetStringField(TEXT("name"), Prop->GetName());
+        PropObj->SetStringField(TEXT("type"), Prop->GetCPPType());
+
+        FString ValueStr;
+        const void* ValuePtr = Prop->ContainerPtrToValuePtr<void>(TargetComp);
+        Prop->ExportTextItem_Direct(ValueStr, ValuePtr, nullptr, TargetComp, PPF_None);
+        PropObj->SetStringField(TEXT("value"), ValueStr);
+
+        PropsArray.Add(MakeShared<FJsonValueObject>(PropObj));
+    }
+    ResultObj->SetArrayField(TEXT("properties"), PropsArray);
+
+    return ResultObj;
+}
+
+TSharedPtr<FJsonObject> FUnrealMCPEditorCommands::HandleGetSelectedActors(const TSharedPtr<FJsonObject>& Params)
+{
+    USelection* SelectedActors = GEditor->GetSelectedActors();
+
+    TArray<TSharedPtr<FJsonValue>> ActorArray;
+    for (int32 i = 0; i < SelectedActors->Num(); i++)
+    {
+        AActor* Actor = Cast<AActor>(SelectedActors->GetSelectedObject(i));
+        if (Actor)
+        {
+            ActorArray.Add(FUnrealMCPCommonUtils::ActorToJson(Actor));
+        }
+    }
+
+    TSharedPtr<FJsonObject> ResultObj = MakeShared<FJsonObject>();
+    ResultObj->SetNumberField(TEXT("count"), ActorArray.Num());
+    ResultObj->SetArrayField(TEXT("actors"), ActorArray);
+    return ResultObj;
+}
+
+TSharedPtr<FJsonObject> FUnrealMCPEditorCommands::HandleGetWorldSettings(const TSharedPtr<FJsonObject>& Params)
+{
+    UWorld* World = GEditor->GetEditorWorldContext().World();
+    if (!World)
+    {
+        return FUnrealMCPCommonUtils::CreateErrorResponse(TEXT("Failed to get editor world"));
+    }
+
+    AWorldSettings* Settings = World->GetWorldSettings();
+    if (!Settings)
+    {
+        return FUnrealMCPCommonUtils::CreateErrorResponse(TEXT("Failed to get world settings"));
+    }
+
+    TSharedPtr<FJsonObject> ResultObj = MakeShared<FJsonObject>();
+    ResultObj->SetStringField(TEXT("level_name"), World->GetMapName());
+    ResultObj->SetNumberField(TEXT("actor_count"), World->GetActorCount());
+    ResultObj->SetBoolField(TEXT("enable_world_bounds_checks"), Settings->bEnableWorldBoundsChecks);
+
+    if (Settings->DefaultGameMode.Get() != nullptr)
+    {
+        ResultObj->SetStringField(TEXT("default_game_mode"), Settings->DefaultGameMode->GetName());
+    }
+    else
+    {
+        ResultObj->SetStringField(TEXT("default_game_mode"), TEXT("None"));
+    }
+
+    ResultObj->SetNumberField(TEXT("world_gravity"), World->GetGravityZ());
+    ResultObj->SetNumberField(TEXT("kill_z"), Settings->KillZ);
+
+    return ResultObj;
 } 

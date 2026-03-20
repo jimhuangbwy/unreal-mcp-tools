@@ -18,11 +18,11 @@ The **Python MCP Server** exposes tools to AI clients via the MCP protocol. When
 
 | Category | Tools |
 |----------|-------|
-| **Editor** | `get_actors_in_level`, `find_actors_by_name`, `spawn_actor`, `delete_actor`, `set_actor_transform`, `get_actor_properties`, `set_actor_property`, `spawn_blueprint_actor`, `take_screenshot` |
-| **Blueprint** | `create_blueprint`, `add_component_to_blueprint`, `set_component_property`, `set_static_mesh_properties`, `set_physics_properties`, `compile_blueprint`, `set_blueprint_property`, `set_pawn_properties` |
-| **Blueprint Nodes** | `add_blueprint_event_node`, `add_blueprint_input_action_node`, `add_blueprint_function_node`, `connect_blueprint_nodes`, `add_blueprint_variable`, `add_blueprint_get_self_component_reference`, `add_blueprint_self_reference`, `find_blueprint_nodes` |
+| **Editor** | `get_actors_in_level`, `find_actors_by_name`, `spawn_actor`, `delete_actor`, `set_actor_transform`, `get_actor_properties`, `set_actor_property`, `spawn_blueprint_actor`, `take_screenshot`, `get_actor_components`, `get_component_details`, `get_selected_actors`, `get_world_settings` |
+| **Blueprint** | `create_blueprint`, `add_component_to_blueprint`, `set_component_property`, `set_static_mesh_properties`, `set_physics_properties`, `compile_blueprint`, `set_blueprint_property`, `set_pawn_properties`, `get_blueprint_info`, `get_blueprint_variables`, `get_blueprint_functions`, `get_blueprint_components`, `get_blueprint_graph`, `get_blueprint_complexity` |
+| **Blueprint Nodes** | `add_blueprint_event_node`, `add_blueprint_input_action_node`, `add_blueprint_enhanced_input_action_node`, `add_blueprint_get_subsystem_node`, `add_blueprint_function_node`, `connect_blueprint_nodes`, `add_blueprint_variable`, `add_blueprint_get_self_component_reference`, `add_blueprint_self_reference`, `find_blueprint_nodes` |
 | **UMG Widgets** | `create_umg_widget_blueprint`, `add_text_block_to_widget`, `add_button_to_widget`, `bind_widget_event`, `set_text_block_binding`, `add_widget_to_viewport` |
-| **Project** | `create_input_mapping` |
+| **Project** | `create_input_mapping`, `create_input_action`, `create_input_mapping_context`, `list_assets`, `get_input_actions`, `get_level_info` |
 
 ## Prerequisites
 

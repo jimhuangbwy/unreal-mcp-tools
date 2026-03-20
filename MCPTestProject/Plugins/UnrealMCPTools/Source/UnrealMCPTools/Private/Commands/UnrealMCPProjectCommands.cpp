@@ -7,6 +7,11 @@
 #include "EditorAssetLibrary.h"
 #include "UObject/SavePackage.h"
 #include "EnhancedInputComponent.h"
+#include "Editor.h"
+#include "Engine/World.h"
+#include "Kismet/GameplayStatics.h"
+#include "GameFramework/Actor.h"
+#include "Engine/LevelStreaming.h"
 
 FUnrealMCPProjectCommands::FUnrealMCPProjectCommands()
 {
@@ -25,6 +30,19 @@ TSharedPtr<FJsonObject> FUnrealMCPProjectCommands::HandleCommand(const FString& 
     else if (CommandType == TEXT("create_input_mapping_context"))
     {
         return HandleCreateInputMappingContext(Params);
+    }
+
+    else if (CommandType == TEXT("list_assets"))
+    {
+        return HandleListAssets(Params);
+    }
+    else if (CommandType == TEXT("get_input_actions"))
+    {
+        return HandleGetInputActions(Params);
+    }
+    else if (CommandType == TEXT("get_level_info"))
+    {
+        return HandleGetLevelInfo(Params);
     }
 
     return FUnrealMCPCommonUtils::CreateErrorResponse(FString::Printf(TEXT("Unknown project command: %s"), *CommandType));
@@ -261,4 +279,149 @@ TSharedPtr<FJsonObject> FUnrealMCPProjectCommands::HandleCreateInputMappingConte
     ResultObj->SetStringField(TEXT("path"), PackagePath);
     ResultObj->SetArrayField(TEXT("mappings"), AddedMappings);
     return ResultObj;
-} 
+}
+
+// ── Read/Query Handlers ───────────────────────────────────────────────────
+
+TSharedPtr<FJsonObject> FUnrealMCPProjectCommands::HandleListAssets(const TSharedPtr<FJsonObject>& Params)
+{
+    FString Path;
+    if (!Params->TryGetStringField(TEXT("path"), Path))
+    {
+        Path = TEXT("/Game/");
+    }
+
+    FString ClassFilter;
+    Params->TryGetStringField(TEXT("class_filter"), ClassFilter);
+
+    bool bRecursive = true;
+    if (Params->HasField(TEXT("recursive")))
+    {
+        bRecursive = Params->GetBoolField(TEXT("recursive"));
+    }
+
+    FAssetRegistryModule& AssetRegistryModule = FModuleManager::LoadModuleChecked<FAssetRegistryModule>("AssetRegistry");
+    IAssetRegistry& AssetRegistry = AssetRegistryModule.Get();
+
+    TArray<FAssetData> AssetList;
+    AssetRegistry.GetAssetsByPath(FName(*Path), AssetList, bRecursive);
+
+    TArray<TSharedPtr<FJsonValue>> AssetsArray;
+    for (const FAssetData& Asset : AssetList)
+    {
+        if (!ClassFilter.IsEmpty())
+        {
+            FString AssetClassName = Asset.AssetClassPath.GetAssetName().ToString();
+            if (!AssetClassName.Contains(ClassFilter))
+            {
+                continue;
+            }
+        }
+
+        TSharedPtr<FJsonObject> AssetObj = MakeShared<FJsonObject>();
+        AssetObj->SetStringField(TEXT("name"), Asset.AssetName.ToString());
+        AssetObj->SetStringField(TEXT("path"), Asset.GetObjectPathString());
+        AssetObj->SetStringField(TEXT("class"), Asset.AssetClassPath.GetAssetName().ToString());
+        AssetObj->SetStringField(TEXT("package"), Asset.PackageName.ToString());
+        AssetsArray.Add(MakeShared<FJsonValueObject>(AssetObj));
+    }
+
+    TSharedPtr<FJsonObject> ResultObj = MakeShared<FJsonObject>();
+    ResultObj->SetStringField(TEXT("search_path"), Path);
+    ResultObj->SetNumberField(TEXT("count"), AssetsArray.Num());
+    ResultObj->SetArrayField(TEXT("assets"), AssetsArray);
+    return ResultObj;
+}
+
+TSharedPtr<FJsonObject> FUnrealMCPProjectCommands::HandleGetInputActions(const TSharedPtr<FJsonObject>& Params)
+{
+    FAssetRegistryModule& AssetRegistryModule = FModuleManager::LoadModuleChecked<FAssetRegistryModule>("AssetRegistry");
+    IAssetRegistry& AssetRegistry = AssetRegistryModule.Get();
+
+    TArray<FAssetData> AssetList;
+    AssetRegistry.GetAssetsByClass(FTopLevelAssetPath(TEXT("/Script/EnhancedInput"), TEXT("InputAction")), AssetList);
+
+    TArray<TSharedPtr<FJsonValue>> ActionsArray;
+    for (const FAssetData& Asset : AssetList)
+    {
+        TSharedPtr<FJsonObject> ActionObj = MakeShared<FJsonObject>();
+        ActionObj->SetStringField(TEXT("name"), Asset.AssetName.ToString());
+        ActionObj->SetStringField(TEXT("path"), Asset.GetObjectPathString());
+
+        UInputAction* InputAction = Cast<UInputAction>(Asset.GetAsset());
+        if (InputAction)
+        {
+            FString ValueTypeStr;
+            switch (InputAction->ValueType)
+            {
+                case EInputActionValueType::Boolean: ValueTypeStr = TEXT("Boolean"); break;
+                case EInputActionValueType::Axis1D: ValueTypeStr = TEXT("Axis1D"); break;
+                case EInputActionValueType::Axis2D: ValueTypeStr = TEXT("Axis2D"); break;
+                case EInputActionValueType::Axis3D: ValueTypeStr = TEXT("Axis3D"); break;
+                default: ValueTypeStr = TEXT("Unknown"); break;
+            }
+            ActionObj->SetStringField(TEXT("value_type"), ValueTypeStr);
+        }
+
+        ActionsArray.Add(MakeShared<FJsonValueObject>(ActionObj));
+    }
+
+    TSharedPtr<FJsonObject> ResultObj = MakeShared<FJsonObject>();
+    ResultObj->SetNumberField(TEXT("count"), ActionsArray.Num());
+    ResultObj->SetArrayField(TEXT("input_actions"), ActionsArray);
+    return ResultObj;
+}
+
+TSharedPtr<FJsonObject> FUnrealMCPProjectCommands::HandleGetLevelInfo(const TSharedPtr<FJsonObject>& Params)
+{
+    UWorld* World = GEditor->GetEditorWorldContext().World();
+    if (!World)
+    {
+        return FUnrealMCPCommonUtils::CreateErrorResponse(TEXT("Failed to get editor world"));
+    }
+
+    TSharedPtr<FJsonObject> ResultObj = MakeShared<FJsonObject>();
+    ResultObj->SetStringField(TEXT("level_name"), World->GetMapName());
+    ResultObj->SetStringField(TEXT("level_path"), World->GetPathName());
+
+    TArray<AActor*> AllActors;
+    UGameplayStatics::GetAllActorsOfClass(World, AActor::StaticClass(), AllActors);
+
+    TMap<FString, int32> ClassCounts;
+    for (AActor* Actor : AllActors)
+    {
+        if (Actor)
+        {
+            FString ClassName = Actor->GetClass()->GetName();
+            ClassCounts.FindOrAdd(ClassName)++;
+        }
+    }
+
+    ResultObj->SetNumberField(TEXT("total_actors"), AllActors.Num());
+
+    TArray<TSharedPtr<FJsonValue>> ClassArray;
+    for (const auto& Pair : ClassCounts)
+    {
+        TSharedPtr<FJsonObject> ClassObj = MakeShared<FJsonObject>();
+        ClassObj->SetStringField(TEXT("class"), Pair.Key);
+        ClassObj->SetNumberField(TEXT("count"), Pair.Value);
+        ClassArray.Add(MakeShared<FJsonValueObject>(ClassObj));
+    }
+    ResultObj->SetArrayField(TEXT("actor_classes"), ClassArray);
+
+    TArray<TSharedPtr<FJsonValue>> SubLevels;
+    for (ULevelStreaming* StreamingLevel : World->GetStreamingLevels())
+    {
+        if (StreamingLevel)
+        {
+            TSharedPtr<FJsonObject> LevelObj = MakeShared<FJsonObject>();
+            LevelObj->SetStringField(TEXT("name"), StreamingLevel->GetWorldAssetPackageFName().ToString());
+            LevelObj->SetBoolField(TEXT("is_loaded"), StreamingLevel->IsLevelLoaded());
+            LevelObj->SetBoolField(TEXT("is_visible"), StreamingLevel->IsLevelVisible());
+            SubLevels.Add(MakeShared<FJsonValueObject>(LevelObj));
+        }
+    }
+    ResultObj->SetArrayField(TEXT("sub_levels"), SubLevels);
+
+    return ResultObj;
+}
